@@ -90,17 +90,17 @@ const Scout = () => {
     {
       name: "ASCENT",
       rank: "#1",
-      imageUrl: "/lovable-uploads/e514a8de-14c8-4b5a-85f1-234e923cfb01.png"
+      imageUrl: "https://media.valorant-api.com/maps/7eaecc1b-4337-bbf6-6ab9-04b8f06b3319/splash.png"
     },
     {
       name: "HAVEN",
       rank: "#2",
-      imageUrl: "/lovable-uploads/e514a8de-14c8-4b5a-85f1-234e923cfb01.png"
+      imageUrl: "https://media.valorant-api.com/maps/2c9d57ec-4431-9c5e-2939-8f9ef6dd5cba/splash.png"
     },
     {
       name: "SPLIT",
       rank: "#3",
-      imageUrl: "/lovable-uploads/e514a8de-14c8-4b5a-85f1-234e923cfb01.png"
+      imageUrl: "https://media.valorant-api.com/maps/d960549e-485c-e861-8d71-aa9d1aed12a2/splash.png"
     }
   ];
 
@@ -277,9 +277,14 @@ controller for smokes, initiator for intel, sentinel for site anchoring, and due
             </div>
             <div className="grid grid-cols-1 gap-4">
               {mapCards.map((map, index) => (
-                <Card key={index} className="relative overflow-hidden h-32 flex justify-center items-center">
-                  <div className="absolute inset-0 flex justify-center items-center">
-                    <span className="text-xl font-bold">{map.name}</span>
+                <Card key={index} className="relative overflow-hidden h-32">
+                  <img 
+                    src={map.imageUrl} 
+                    alt={map.name}
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black/50 flex justify-center items-center">
+                    <span className="text-xl font-bold text-white">{map.name}</span>
                   </div>
                   <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 text-sm font-bold">
                     {map.rank}
