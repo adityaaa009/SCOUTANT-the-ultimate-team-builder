@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -20,6 +19,7 @@ interface PlayerCard {
   dpr: number;
   games: number;
   imageUrl: string;
+  agentImageUrl: string;
 }
 
 interface MapCard {
@@ -41,7 +41,8 @@ const Scout = () => {
       kpr: 0.77,
       dpr: 0.68,
       games: 215,
-      imageUrl: "/lovable-uploads/e514a8de-14c8-4b5a-85f1-234e923cfb01.png"
+      imageUrl: "/lovable-uploads/e514a8de-14c8-4b5a-85f1-234e923cfb01.png",
+      agentImageUrl: "https://media.valorant-api.com/agents/8e253930-4c05-31dd-1b6c-968525494517/displayicon.png"
     },
     {
       name: "LEO",
@@ -50,7 +51,8 @@ const Scout = () => {
       kpr: 0.73,
       dpr: 0.58,
       games: 818,
-      imageUrl: "/lovable-uploads/e514a8de-14c8-4b5a-85f1-234e923cfb01.png"
+      imageUrl: "/lovable-uploads/e514a8de-14c8-4b5a-85f1-234e923cfb01.png",
+      agentImageUrl: "https://media.valorant-api.com/agents/dade69b4-4f5a-8528-247b-219e5a1facd6/displayicon.png"
     },
     {
       name: "LESS",
@@ -59,7 +61,8 @@ const Scout = () => {
       kpr: 0.73,
       dpr: 0.63,
       games: 957,
-      imageUrl: "/lovable-uploads/e514a8de-14c8-4b5a-85f1-234e923cfb01.png"
+      imageUrl: "/lovable-uploads/e514a8de-14c8-4b5a-85f1-234e923cfb01.png",
+      agentImageUrl: "https://media.valorant-api.com/agents/1e58de9c-4950-5125-93e9-a0aee9f98746/displayicon.png"
     },
     {
       name: "ASPAS",
@@ -68,7 +71,8 @@ const Scout = () => {
       kpr: 0.9,
       dpr: 0.65,
       games: 1736,
-      imageUrl: "/lovable-uploads/e514a8de-14c8-4b5a-85f1-234e923cfb01.png"
+      imageUrl: "/lovable-uploads/e514a8de-14c8-4b5a-85f1-234e923cfb01.png",
+      agentImageUrl: "https://media.valorant-api.com/agents/f94c3b30-42be-e959-889c-5aa313dba261/displayicon.png"
     },
     {
       name: "ZEKKEN",
@@ -77,7 +81,8 @@ const Scout = () => {
       kpr: 0.88,
       dpr: 0.74,
       games: 1650,
-      imageUrl: "/lovable-uploads/e514a8de-14c8-4b5a-85f1-234e923cfb01.png"
+      imageUrl: "/lovable-uploads/e514a8de-14c8-4b5a-85f1-234e923cfb01.png",
+      agentImageUrl: "https://media.valorant-api.com/agents/add6443a-41bd-e414-f6ad-e58d267f4e95/displayicon.png"
     }
   ];
 
@@ -231,6 +236,11 @@ controller for smokes, initiator for intel, sentinel for site anchoring, and due
                 <Card key={index} className="overflow-hidden border-border">
                   <div className="flex">
                     <div className="w-1/3 bg-card relative">
+                      <img 
+                        src={player.agentImageUrl} 
+                        alt={player.agent} 
+                        className="w-full h-full object-cover"
+                      />
                       <div className="absolute top-2 left-2 bg-black/50 px-2 py-1 text-xs">
                         {player.agent}
                       </div>
