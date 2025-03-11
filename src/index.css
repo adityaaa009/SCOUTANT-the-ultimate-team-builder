@@ -49,3 +49,36 @@
   @apply bg-white/10 backdrop-blur-lg border border-white/20;
 }
 
+/* Scout page specific styles */
+.scout-gradient {
+  background: linear-gradient(to bottom, rgba(239, 68, 68, 0.1), transparent);
+}
+
+.agent-card {
+  @apply relative overflow-hidden border border-border transition-all duration-300;
+}
+
+.agent-card-hover {
+  @apply hover:border-red-500/50 hover:shadow-md;
+}
+
+.stats-label {
+  @apply text-xs text-muted-foreground;
+}
+
+.stats-value {
+  @apply text-xs font-bold text-red-500;
+}
+
+.map-card {
+  @apply relative overflow-hidden rounded-md transition-all duration-300;
+}
+
+.map-name {
+  @apply absolute inset-0 flex items-center justify-center text-lg font-bold;
+}
+
+.map-rank {
+  @apply absolute top-2 right-2 bg-red-500 text-white px-2 py-1 text-sm font-bold;
+}
+

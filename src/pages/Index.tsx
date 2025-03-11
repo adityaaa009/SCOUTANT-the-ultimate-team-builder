@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Shield, Target, Users, TrendingUp, Search, Gamepad } from "lucide-react";
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
 
 const Index = () => {
   const features = [
@@ -47,9 +48,14 @@ const Index = () => {
             <p className="text-2xl text-muted-foreground mb-8">
               Build Your Perfect Valorant Team with AI-Powered Analytics
             </p>
-            <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90">
-              Get Early Access
-            </Button>
+            <div className="flex flex-wrap justify-center gap-4">
+              <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90">
+                Get Early Access
+              </Button>
+              <Button size="lg" variant="outline" asChild>
+                <Link to="/scout">Try Team Builder</Link>
+              </Button>
+            </div>
           </motion.div>
         </div>
       </div>
@@ -114,9 +120,14 @@ const Index = () => {
           <p className="text-muted-foreground mb-8">
             Join the closed beta and be among the first to experience the future of team building in Valorant
           </p>
-          <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90">
-            Request Beta Access
-          </Button>
+          <div className="flex flex-wrap justify-center gap-4">
+            <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90">
+              Request Beta Access
+            </Button>
+            <Button size="lg" variant="outline" asChild>
+              <Link to="/scout">Try Demo Now</Link>
+            </Button>
+          </div>
         </div>
       </div>
     </div>
