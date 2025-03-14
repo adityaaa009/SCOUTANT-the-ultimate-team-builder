@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -8,7 +7,8 @@ import {
   Send, 
   Target, 
   Gamepad, 
-  Mic 
+  Mic,
+  BarChart
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -46,14 +46,12 @@ const Scout = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    // Check authentication status
     setIsAuthenticated(auth.isAuthenticated());
   }, []);
 
   useEffect(() => {
     localStorage.setItem("scoutant-prompt-count", promptCount.toString());
     
-    // Only show auth prompt if not authenticated AND prompt count is 2 or more
     if (promptCount >= 2 && !isAuthenticated) {
       setShowAuthPrompt(true);
     }
@@ -86,7 +84,6 @@ const Scout = () => {
   };
 
   const generateDynamicResponse = (userPrompt: string) => {
-    // Create a more dynamic response based on the user's prompt
     const keywords = {
       team: ["composition", "roster", "lineup", "squad", "players"],
       strategy: ["tactics", "approach", "plan", "method", "formation"],
@@ -99,7 +96,6 @@ const Scout = () => {
     
     let responseType = "";
     
-    // Determine response type based on keywords
     for (const [key, words] of Object.entries(keywords)) {
       if (words.some(word => promptLower.includes(word))) {
         responseType = key;
@@ -107,7 +103,6 @@ const Scout = () => {
       }
     }
     
-    // Default to team if no keywords match
     if (!responseType) responseType = "team";
     
     const responses = {
@@ -155,7 +150,6 @@ Here's what the data reveals about tournament strategies:`
     ];
     const roles = ["Duelist", "Controller", "Sentinel", "Initiator"];
     
-    // Generate 5 players with random data
     return Array.from({ length: 5 }, () => {
       const randomAgent = agents[Math.floor(Math.random() * agents.length)];
       let role;
@@ -200,7 +194,6 @@ Here's what the data reveals about tournament strategies:`
       { name: "LOTUS", imageUrl: "https://media.valorant-api.com/maps/2fe4ed3a-450a-948b-6d6b-e89a78e680a9/splash.png" }
     ];
     
-    // Get 3 random maps
     const shuffled = [...maps].sort(() => 0.5 - Math.random());
     return shuffled.slice(0, 3).map((map, index) => ({
       name: map.name,
@@ -251,10 +244,15 @@ Here's what the data reveals about tournament strategies:`
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        <div className="border-r border-border p-4 flex flex-col items-center">
+        <div className="border-r border-border p-4 flex flex-col items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
             <Link to={isAuthenticated ? "/scout" : "/signin"}>
               <Users className="h-5 w-5" />
+            </Link>
+          </Button>
+          <Button variant="ghost" size="icon" asChild>
+            <Link to="/performance">
+              <BarChart className="h-5 w-5" />
             </Link>
           </Button>
         </div>

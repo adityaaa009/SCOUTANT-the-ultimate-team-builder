@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import Scout from "./pages/Scout";
 import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
+import Performance from "./pages/Performance";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -23,6 +24,7 @@ const App = () => (
           <Route path="/scout" element={<Scout />} />
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
+          <Route path="/performance" element={<Performance />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
