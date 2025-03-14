@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -11,6 +12,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { Link } from "react-router-dom";
 
 interface PlayerCard {
   name: string;
@@ -33,96 +35,53 @@ const Scout = () => {
   const [prompt, setPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [response, setResponse] = useState("");
-
-  const playerCards: PlayerCard[] = [
-    {
-      name: "S0M",
-      agent: "OMEN",
-      role: "Controller",
-      kpr: 0.77,
-      dpr: 0.68,
-      games: 215,
-      imageUrl: "/lovable-uploads/e514a8de-14c8-4b5a-85f1-234e923cfb01.png",
-      agentImageUrl: "https://media.valorant-api.com/agents/8e253930-4c05-31dd-1b6c-968525494517/displayicon.png"
-    },
-    {
-      name: "LEO",
-      agent: "FADE",
-      role: "Initiator",
-      kpr: 0.73,
-      dpr: 0.58,
-      games: 818,
-      imageUrl: "/lovable-uploads/e514a8de-14c8-4b5a-85f1-234e923cfb01.png",
-      agentImageUrl: "https://media.valorant-api.com/agents/dade69b4-4f5a-8528-247b-219e5a1facd6/displayicon.png"
-    },
-    {
-      name: "LESS",
-      agent: "KILLJOY",
-      role: "Sentinel",
-      kpr: 0.73,
-      dpr: 0.63,
-      games: 957,
-      imageUrl: "/lovable-uploads/e514a8de-14c8-4b5a-85f1-234e923cfb01.png",
-      agentImageUrl: "https://media.valorant-api.com/agents/1e58de9c-4950-5125-93e9-a0aee9f98746/displayicon.png"
-    },
-    {
-      name: "ASPAS",
-      agent: "RAZE",
-      role: "Duelist",
-      kpr: 0.9,
-      dpr: 0.65,
-      games: 1736,
-      imageUrl: "/lovable-uploads/e514a8de-14c8-4b5a-85f1-234e923cfb01.png",
-      agentImageUrl: "https://media.valorant-api.com/agents/f94c3b30-42be-e959-889c-5aa313dba261/displayicon.png"
-    },
-    {
-      name: "ZEKKEN",
-      agent: "JETT",
-      role: "Duelist",
-      kpr: 0.88,
-      dpr: 0.74,
-      games: 1650,
-      imageUrl: "/lovable-uploads/e514a8de-14c8-4b5a-85f1-234e923cfb01.png",
-      agentImageUrl: "https://media.valorant-api.com/agents/add6443a-41bd-e414-f6ad-e58d267f4e95/displayicon.png"
-    }
-  ];
-
-  const mapCards: MapCard[] = [
-    {
-      name: "ASCENT",
-      rank: "#1",
-      imageUrl: "https://media.valorant-api.com/maps/7eaecc1b-4337-bbf6-6ab9-04b8f06b3319/splash.png"
-    },
-    {
-      name: "HAVEN",
-      rank: "#2",
-      imageUrl: "https://media.valorant-api.com/maps/2c9d57ec-4431-9c5e-2939-8f9ef6dd5cba/splash.png"
-    },
-    {
-      name: "SPLIT",
-      rank: "#3",
-      imageUrl: "https://media.valorant-api.com/maps/d960549e-485c-e861-8d71-aa9d1aed12a2/splash.png"
-    }
-  ];
+  const [promptCount, setPromptCount] = useState(() => {
+    const savedCount = localStorage.getItem("scoutant-prompt-count");
+    return savedCount ? parseInt(savedCount, 0) : 0;
+  });
+  const [playerCards, setPlayerCards] = useState<PlayerCard[]>([]);
+  const [mapCards, setMapCards] = useState<MapCard[]>([]);
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
 
   useEffect(() => {
-    mapCards.forEach(map => {
-      const img = new Image();
-      img.src = map.imageUrl;
-      img.onload = () => {
-        console.log(`Map image loaded: ${map.name}`);
-      };
-      img.onerror = () => {
-        console.error(`Failed to load map image: ${map.name}`);
-        toast.error(`Failed to load map image: ${map.name}`);
-      };
-    });
-  }, []);
+    // Save prompt count to localStorage whenever it changes
+    localStorage.setItem("scoutant-prompt-count", promptCount.toString());
+    
+    // Check if we need to show the auth prompt
+    if (promptCount >= 2) {
+      setShowAuthPrompt(true);
+    }
+  }, [promptCount]);
+
+  useEffect(() => {
+    if (mapCards.length > 0) {
+      mapCards.forEach(map => {
+        const img = new Image();
+        img.src = map.imageUrl;
+        img.onload = () => {
+          console.log(`Map image loaded: ${map.name}`);
+        };
+        img.onerror = () => {
+          console.error(`Failed to load map image: ${map.name}`);
+          toast.error(`Failed to load map image: ${map.name}`);
+        };
+      });
+    }
+  }, [mapCards]);
 
   const handlePromptSubmit = () => {
     if (!prompt.trim()) return;
     
+    // Check if the user has used all their free prompts
+    if (promptCount >= 2) {
+      setShowAuthPrompt(true);
+      return;
+    }
+    
     setIsLoading(true);
+    
+    // Increment prompt count
+    setPromptCount(prevCount => prevCount + 1);
     
     setTimeout(() => {
       setResponse(`Certainly! I'll build a team using players from VCT International, assign roles, and explain the
@@ -152,6 +111,78 @@ reasons:
 1. Balanced Roles: The team has a good mix of agents covering all essential roles -
 controller for smokes, initiator for intel, sentinel for site anchoring, and duelists for entry.`);
       
+      // Populate player cards and map cards after a successful prompt
+      setPlayerCards([
+        {
+          name: "S0M",
+          agent: "OMEN",
+          role: "Controller",
+          kpr: 0.77,
+          dpr: 0.68,
+          games: 215,
+          imageUrl: "/lovable-uploads/e514a8de-14c8-4b5a-85f1-234e923cfb01.png",
+          agentImageUrl: "https://media.valorant-api.com/agents/8e253930-4c05-31dd-1b6c-968525494517/displayicon.png"
+        },
+        {
+          name: "LEO",
+          agent: "FADE",
+          role: "Initiator",
+          kpr: 0.73,
+          dpr: 0.58,
+          games: 818,
+          imageUrl: "/lovable-uploads/e514a8de-14c8-4b5a-85f1-234e923cfb01.png",
+          agentImageUrl: "https://media.valorant-api.com/agents/dade69b4-4f5a-8528-247b-219e5a1facd6/displayicon.png"
+        },
+        {
+          name: "LESS",
+          agent: "KILLJOY",
+          role: "Sentinel",
+          kpr: 0.73,
+          dpr: 0.63,
+          games: 957,
+          imageUrl: "/lovable-uploads/e514a8de-14c8-4b5a-85f1-234e923cfb01.png",
+          agentImageUrl: "https://media.valorant-api.com/agents/1e58de9c-4950-5125-93e9-a0aee9f98746/displayicon.png"
+        },
+        {
+          name: "ASPAS",
+          agent: "RAZE",
+          role: "Duelist",
+          kpr: 0.9,
+          dpr: 0.65,
+          games: 1736,
+          imageUrl: "/lovable-uploads/e514a8de-14c8-4b5a-85f1-234e923cfb01.png",
+          agentImageUrl: "https://media.valorant-api.com/agents/f94c3b30-42be-e959-889c-5aa313dba261/displayicon.png"
+        },
+        {
+          name: "ZEKKEN",
+          agent: "JETT",
+          role: "Duelist",
+          kpr: 0.88,
+          dpr: 0.74,
+          games: 1650,
+          imageUrl: "/lovable-uploads/e514a8de-14c8-4b5a-85f1-234e923cfb01.png",
+          agentImageUrl: "https://media.valorant-api.com/agents/add6443a-41bd-e414-f6ad-e58d267f4e95/displayicon.png"
+        }
+      ]);
+      
+      setMapCards([
+        {
+          name: "ASCENT",
+          rank: "#1",
+          imageUrl: "https://media.valorant-api.com/maps/7eaecc1b-4337-bbf6-6ab9-04b8f06b3319/splash.png"
+        },
+        {
+          name: "HAVEN",
+          rank: "#2",
+          imageUrl: "https://media.valorant-api.com/maps/2c9d57ec-4431-9c5e-2939-8f9ef6dd5cba/splash.png"
+        },
+        {
+          name: "SPLIT",
+          rank: "#3",
+          imageUrl: "https://media.valorant-api.com/maps/d960549e-485c-e861-8d71-aa9d1aed12a2/splash.png"
+        }
+      ]);
+      
       setIsLoading(false);
     }, 2000);
   };
@@ -160,8 +191,12 @@ controller for smokes, initiator for intel, sentinel for site anchoring, and due
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <header className="border-b border-border py-4 px-6 flex justify-between items-center">
         <div className="flex items-center gap-2">
-          <Search className="h-6 w-6 text-primary" />
-          <h1 className="text-xl font-bold tracking-tight">SCOUTANT</h1>
+          <Link to="/">
+            <div className="flex items-center gap-2 cursor-pointer">
+              <Search className="h-6 w-6 text-primary" />
+              <h1 className="text-xl font-bold tracking-tight">SCOUTANT</h1>
+            </div>
+          </Link>
         </div>
         <Button variant="outline" size="icon" className="rounded-full">
           <Users className="h-5 w-5" />
@@ -177,15 +212,20 @@ controller for smokes, initiator for intel, sentinel for site anchoring, and due
 
         <div className="flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto p-6">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-red-500 rounded-lg p-6 text-white mb-6"
-            >
-              <p>Build a team using only players from VCT International
-                 Assign roles to each player and explain why this
-                 composition would be effective in a competitive match.</p>
-            </motion.div>
+            {showAuthPrompt && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-amber-500 rounded-lg p-6 text-white mb-6"
+              >
+                <p className="font-semibold mb-2">Free trial limit reached!</p>
+                <p className="mb-4">You've used your 2 free prompts. Sign up or sign in to continue using SCOUTANT.</p>
+                <div className="flex gap-3">
+                  <Button className="bg-white text-amber-500 hover:bg-white/90">Sign Up</Button>
+                  <Button variant="outline" className="border-white text-white hover:bg-amber-600">Sign In</Button>
+                </div>
+              </motion.div>
+            )}
 
             {response && (
               <motion.div
@@ -236,6 +276,12 @@ controller for smokes, initiator for intel, sentinel for site anchoring, and due
               TEAM FORMATION
             </div>
             <div className="space-y-4">
+              {playerCards.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Target className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p>Submit a prompt to see team formation</p>
+                </div>
+              )}
               {playerCards.map((player, index) => (
                 <Card key={index} className="overflow-hidden border-border">
                   <div className="flex">
@@ -279,6 +325,12 @@ controller for smokes, initiator for intel, sentinel for site anchoring, and due
               TOP MAPS
             </div>
             <div className="grid grid-cols-1 gap-4">
+              {mapCards.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Gamepad className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p>Submit a prompt to see top maps</p>
+                </div>
+              )}
               {mapCards.map((map, index) => (
                 <Card key={index} className="relative overflow-hidden h-32">
                   <img 
