@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { z } from "zod";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Search } from "lucide-react";
+import { auth } from "@/lib/auth";
 
 const formSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -25,20 +26,30 @@ const SignIn = () => {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: "",
-      password: "",
+      email: auth.getDefaultCredentials().email,
+      password: auth.getDefaultCredentials().password,
     },
   });
+
+  useEffect(() => {
+    // Check if already logged in
+    if (auth.isAuthenticated()) {
+      navigate("/scout");
+    }
+  }, [navigate]);
 
   const onSubmit = async (data: FormValues) => {
     setIsLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      await auth.login(data.email, data.password);
       toast.success("Signed in successfully");
       navigate("/scout");
-    }, 1500);
+    } catch (error) {
+      toast.error("Invalid email or password");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

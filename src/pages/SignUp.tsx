@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { z } from "zod";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Search } from "lucide-react";
+import { auth } from "@/lib/auth";
 
 const formSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -32,15 +33,25 @@ const SignUp = () => {
     },
   });
 
+  useEffect(() => {
+    // Check if already logged in
+    if (auth.isAuthenticated()) {
+      navigate("/scout");
+    }
+  }, [navigate]);
+
   const onSubmit = async (data: FormValues) => {
     setIsLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      await auth.register(data.name, data.email, data.password);
       toast.success("Account created successfully");
       navigate("/scout");
-    }, 1500);
+    } catch (error) {
+      toast.error("Failed to create account");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -111,6 +122,11 @@ const SignUp = () => {
             <Link to="/signin" className="text-primary hover:underline">
               Sign in
             </Link>
+          </div>
+          <div className="mt-4 text-center text-xs text-muted-foreground">
+            <p>For demo, use:</p>
+            <p>Email: {auth.getDefaultCredentials().email}</p>
+            <p>Password: {auth.getDefaultCredentials().password}</p>
           </div>
         </CardFooter>
       </Card>
