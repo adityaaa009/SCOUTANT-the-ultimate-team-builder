@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -12,6 +13,7 @@ import {
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
+import { auth } from "@/lib/auth";
 
 interface PlayerCard {
   name: string;
@@ -41,14 +43,21 @@ const Scout = () => {
   const [playerCards, setPlayerCards] = useState<PlayerCard[]>([]);
   const [mapCards, setMapCards] = useState<MapCard[]>([]);
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    // Check authentication status
+    setIsAuthenticated(auth.isAuthenticated());
+  }, []);
 
   useEffect(() => {
     localStorage.setItem("scoutant-prompt-count", promptCount.toString());
     
-    if (promptCount >= 2) {
+    // Only show auth prompt if not authenticated AND prompt count is 2 or more
+    if (promptCount >= 2 && !isAuthenticated) {
       setShowAuthPrompt(true);
     }
-  }, [promptCount]);
+  }, [promptCount, isAuthenticated]);
 
   useEffect(() => {
     if (mapCards.length > 0) {
@@ -66,10 +75,144 @@ const Scout = () => {
     }
   }, [mapCards]);
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && prompt.trim()) {
+      handlePromptSubmit();
+    }
+  };
+
+  const getRandomNumber = (min: number, max: number) => {
+    return Math.floor(Math.random() * (max - min + 1) + min);
+  };
+
+  const generateDynamicResponse = (userPrompt: string) => {
+    // Create a more dynamic response based on the user's prompt
+    const keywords = {
+      team: ["composition", "roster", "lineup", "squad", "players"],
+      strategy: ["tactics", "approach", "plan", "method", "formation"],
+      map: ["map", "maps", "arena", "venue", "location"],
+      agent: ["agent", "character", "hero", "operator"],
+      tournament: ["tournament", "competition", "championship", "event"]
+    };
+
+    const promptLower = userPrompt.toLowerCase();
+    
+    let responseType = "";
+    
+    // Determine response type based on keywords
+    for (const [key, words] of Object.entries(keywords)) {
+      if (words.some(word => promptLower.includes(word))) {
+        responseType = key;
+        break;
+      }
+    }
+    
+    // Default to team if no keywords match
+    if (!responseType) responseType = "team";
+    
+    const responses = {
+      team: `Based on your request about "${userPrompt}", I've analyzed recent performance data from VCT International to create an optimal team composition.
+
+Data analysis complete. Creating a balanced roster that complements player strengths...
+
+Here's the recommended lineup:`,
+      strategy: `I've evaluated your query: "${userPrompt}" and developed strategic recommendations based on current meta analysis.
+
+Processing tactical data from recent professional matches...
+
+Strategy formation complete. Here are my tactical recommendations:`,
+      map: `Analyzing your request: "${userPrompt}" against the current map pool and meta.
+
+Evaluating win rates and composition effectiveness across various maps...
+
+Analysis complete. Here are the optimal maps for your scenario:`,
+      agent: `For your query about "${userPrompt}", I've assessed agent performance data across competitive tiers.
+
+Analyzing agent pick rates, win rates and utility effectiveness...
+
+Here are my agent recommendations based on your requirements:`,
+      tournament: `Based on your question about "${userPrompt}", I've compiled relevant tournament data.
+
+Analyzing recent competition results and team performances...
+
+Here's what the data reveals about tournament strategies:`
+    };
+    
+    return responses[responseType as keyof typeof responses];
+  };
+
+  const generateRandomPlayerData = () => {
+    const playerNames = ["TenZ", "yay", "Asuna", "ShahZaM", "cNed", "ScreaM", "Boaster", "nAts", "Chronicle", "Derke", "Aspas", "Less", "Leo", "s0m", "Zekken"];
+    const agents = [
+      { name: "JETT", imageUrl: "https://media.valorant-api.com/agents/add6443a-41bd-e414-f6ad-e58d267f4e95/displayicon.png" },
+      { name: "RAZE", imageUrl: "https://media.valorant-api.com/agents/f94c3b30-42be-e959-889c-5aa313dba261/displayicon.png" },
+      { name: "BREACH", imageUrl: "https://media.valorant-api.com/agents/5f8d3a7f-467b-97f3-062c-13acf203c006/displayicon.png" },
+      { name: "OMEN", imageUrl: "https://media.valorant-api.com/agents/8e253930-4c05-31dd-1b6c-968525494517/displayicon.png" },
+      { name: "FADE", imageUrl: "https://media.valorant-api.com/agents/dade69b4-4f5a-8528-247b-219e5a1facd6/displayicon.png" },
+      { name: "KILLJOY", imageUrl: "https://media.valorant-api.com/agents/1e58de9c-4950-5125-93e9-a0aee9f98746/displayicon.png" },
+      { name: "CHAMBER", imageUrl: "https://media.valorant-api.com/agents/22697a3d-45bf-8dd7-4fec-84a9e28c69d7/displayicon.png" },
+      { name: "SAGE", imageUrl: "https://media.valorant-api.com/agents/569fdd95-4d10-43ab-ca70-79becc718b46/displayicon.png" }
+    ];
+    const roles = ["Duelist", "Controller", "Sentinel", "Initiator"];
+    
+    // Generate 5 players with random data
+    return Array.from({ length: 5 }, () => {
+      const randomAgent = agents[Math.floor(Math.random() * agents.length)];
+      let role;
+      switch (randomAgent.name) {
+        case "JETT":
+        case "RAZE":
+          role = "Duelist";
+          break;
+        case "OMEN":
+          role = "Controller";
+          break;
+        case "KILLJOY":
+        case "CHAMBER":
+        case "SAGE":
+          role = "Sentinel";
+          break;
+        default:
+          role = "Initiator";
+      }
+      
+      return {
+        name: playerNames[Math.floor(Math.random() * playerNames.length)],
+        agent: randomAgent.name,
+        role: role,
+        kpr: parseFloat((Math.random() * 0.4 + 0.6).toFixed(2)),
+        dpr: parseFloat((Math.random() * 0.25 + 0.55).toFixed(2)),
+        games: getRandomNumber(200, 1800),
+        imageUrl: "/lovable-uploads/e514a8de-14c8-4b5a-85f1-234e923cfb01.png",
+        agentImageUrl: randomAgent.imageUrl
+      };
+    });
+  };
+
+  const generateRandomMapData = () => {
+    const maps = [
+      { name: "ASCENT", imageUrl: "https://media.valorant-api.com/maps/7eaecc1b-4337-bbf6-6ab9-04b8f06b3319/splash.png" },
+      { name: "HAVEN", imageUrl: "https://media.valorant-api.com/maps/2c9d57ec-4431-9c5e-2939-8f9ef6dd5cba/splash.png" },
+      { name: "SPLIT", imageUrl: "https://media.valorant-api.com/maps/d960549e-485c-e861-8d71-aa9d1aed12a2/splash.png" },
+      { name: "BIND", imageUrl: "https://media.valorant-api.com/maps/2c9d57ec-4431-9c5e-2939-8f9ef6dd5cba/splash.png" },
+      { name: "ICEBOX", imageUrl: "https://media.valorant-api.com/maps/e2ad5c54-4114-a870-9641-8ea21279579a/splash.png" },
+      { name: "BREEZE", imageUrl: "https://media.valorant-api.com/maps/2fb9a4fd-47b8-4e7d-a969-74b4046ebd53/splash.png" },
+      { name: "LOTUS", imageUrl: "https://media.valorant-api.com/maps/2fe4ed3a-450a-948b-6d6b-e89a78e680a9/splash.png" }
+    ];
+    
+    // Get 3 random maps
+    const shuffled = [...maps].sort(() => 0.5 - Math.random());
+    return shuffled.slice(0, 3).map((map, index) => ({
+      name: map.name,
+      rank: `#${index + 1}`,
+      imageUrl: map.imageUrl
+    }));
+  };
+
   const handlePromptSubmit = () => {
     if (!prompt.trim()) return;
     
-    if (promptCount >= 2) {
+    if (promptCount >= 2 && !isAuthenticated) {
       setShowAuthPrompt(true);
       return;
     }
@@ -79,103 +222,11 @@ const Scout = () => {
     setPromptCount(prevCount => prevCount + 1);
     
     setTimeout(() => {
-      setResponse(`Certainly! I'll build a team using players from VCT International, assign roles, and explain the
-composition's effectiveness. Let's begin by retrieving the necessary data and analyzing it.
-
-Data Retrieval...
-Data Retrieval...
-Team Composition...
-Analysis...
-Strategy Development...
-
-Based on the team composition I've selected, I'll now save it to the database for future
-reference.
-
-Based on the data from VCT International, I've assembled a balanced and competitive team
-composition. Here's the lineup with assigned roles and explanations for their effectiveness:
-
-1. s0m (Controller - Omen, IGL)
-2. Leo (Initiator - Fade)
-3. Less (Sentinel - Killjoy)
-4. Aspas (Duelist - Raze)
-5. Zekken (Duelist - Jett)
-
-This team composition would be highly effective in a competitive match for the following
-reasons:
-
-1. Balanced Roles: The team has a good mix of agents covering all essential roles -
-controller for smokes, initiator for intel, sentinel for site anchoring, and duelists for entry.`);
+      const dynamicResponse = generateDynamicResponse(prompt);
+      setResponse(dynamicResponse);
       
-      setPlayerCards([
-        {
-          name: "S0M",
-          agent: "OMEN",
-          role: "Controller",
-          kpr: 0.77,
-          dpr: 0.68,
-          games: 215,
-          imageUrl: "/lovable-uploads/e514a8de-14c8-4b5a-85f1-234e923cfb01.png",
-          agentImageUrl: "https://media.valorant-api.com/agents/8e253930-4c05-31dd-1b6c-968525494517/displayicon.png"
-        },
-        {
-          name: "LEO",
-          agent: "FADE",
-          role: "Initiator",
-          kpr: 0.73,
-          dpr: 0.58,
-          games: 818,
-          imageUrl: "/lovable-uploads/e514a8de-14c8-4b5a-85f1-234e923cfb01.png",
-          agentImageUrl: "https://media.valorant-api.com/agents/dade69b4-4f5a-8528-247b-219e5a1facd6/displayicon.png"
-        },
-        {
-          name: "LESS",
-          agent: "KILLJOY",
-          role: "Sentinel",
-          kpr: 0.73,
-          dpr: 0.63,
-          games: 957,
-          imageUrl: "/lovable-uploads/e514a8de-14c8-4b5a-85f1-234e923cfb01.png",
-          agentImageUrl: "https://media.valorant-api.com/agents/1e58de9c-4950-5125-93e9-a0aee9f98746/displayicon.png"
-        },
-        {
-          name: "ASPAS",
-          agent: "RAZE",
-          role: "Duelist",
-          kpr: 0.9,
-          dpr: 0.65,
-          games: 1736,
-          imageUrl: "/lovable-uploads/e514a8de-14c8-4b5a-85f1-234e923cfb01.png",
-          agentImageUrl: "https://media.valorant-api.com/agents/f94c3b30-42be-e959-889c-5aa313dba261/displayicon.png"
-        },
-        {
-          name: "ZEKKEN",
-          agent: "JETT",
-          role: "Duelist",
-          kpr: 0.88,
-          dpr: 0.74,
-          games: 1650,
-          imageUrl: "/lovable-uploads/e514a8de-14c8-4b5a-85f1-234e923cfb01.png",
-          agentImageUrl: "https://media.valorant-api.com/agents/add6443a-41bd-e414-f6ad-e58d267f4e95/displayicon.png"
-        }
-      ]);
-      
-      setMapCards([
-        {
-          name: "ASCENT",
-          rank: "#1",
-          imageUrl: "https://media.valorant-api.com/maps/7eaecc1b-4337-bbf6-6ab9-04b8f06b3319/splash.png"
-        },
-        {
-          name: "HAVEN",
-          rank: "#2",
-          imageUrl: "https://media.valorant-api.com/maps/2c9d57ec-4431-9c5e-2939-8f9ef6dd5cba/splash.png"
-        },
-        {
-          name: "SPLIT",
-          rank: "#3",
-          imageUrl: "https://media.valorant-api.com/maps/d960549e-485c-e861-8d71-aa9d1aed12a2/splash.png"
-        }
-      ]);
+      setPlayerCards(generateRandomPlayerData());
+      setMapCards(generateRandomMapData());
       
       setIsLoading(false);
     }, 2000);
@@ -193,7 +244,7 @@ controller for smokes, initiator for intel, sentinel for site anchoring, and due
           </Link>
         </div>
         <Button variant="outline" size="icon" className="rounded-full" asChild>
-          <Link to="/signin">
+          <Link to={isAuthenticated ? "/scout" : "/signin"}>
             <Users className="h-5 w-5" />
           </Link>
         </Button>
@@ -202,7 +253,7 @@ controller for smokes, initiator for intel, sentinel for site anchoring, and due
       <div className="flex flex-1 overflow-hidden">
         <div className="border-r border-border p-4 flex flex-col items-center">
           <Button variant="ghost" size="icon" asChild>
-            <Link to="/signin">
+            <Link to={isAuthenticated ? "/scout" : "/signin"}>
               <Users className="h-5 w-5" />
             </Link>
           </Button>
@@ -210,7 +261,7 @@ controller for smokes, initiator for intel, sentinel for site anchoring, and due
 
         <div className="flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto p-6">
-            {showAuthPrompt && (
+            {showAuthPrompt && !isAuthenticated && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -254,6 +305,7 @@ controller for smokes, initiator for intel, sentinel for site anchoring, and due
                 type="text"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
+                onKeyDown={handleKeyDown}
                 placeholder="Build the team..."
                 className="w-full rounded-full bg-card/70 border border-border py-3 pl-12 pr-20 focus:outline-none focus:border-primary transition-all"
               />
