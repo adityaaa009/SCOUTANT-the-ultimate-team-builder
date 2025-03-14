@@ -49,8 +49,8 @@ const Index = () => {
               Build Your Perfect Valorant Team with AI-Powered Analytics
             </p>
             <div className="flex flex-wrap justify-center gap-4">
-              <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90">
-                Get Early Access
+              <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90" asChild>
+                <Link to="/signup">Get Early Access</Link>
               </Button>
               <Button size="lg" variant="outline" asChild>
                 <Link to="/scout">Try Team Builder</Link>
@@ -121,8 +121,8 @@ const Index = () => {
             Join the closed beta and be among the first to experience the future of team building in Valorant
           </p>
           <div className="flex flex-wrap justify-center gap-4">
-            <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90">
-              Request Beta Access
+            <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90" asChild>
+              <Link to="/signup">Request Beta Access</Link>
             </Button>
             <Button size="lg" variant="outline" asChild>
               <Link to="/scout">Try Demo Now</Link>

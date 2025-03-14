@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -44,10 +43,8 @@ const Scout = () => {
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
 
   useEffect(() => {
-    // Save prompt count to localStorage whenever it changes
     localStorage.setItem("scoutant-prompt-count", promptCount.toString());
     
-    // Check if we need to show the auth prompt
     if (promptCount >= 2) {
       setShowAuthPrompt(true);
     }
@@ -72,7 +69,6 @@ const Scout = () => {
   const handlePromptSubmit = () => {
     if (!prompt.trim()) return;
     
-    // Check if the user has used all their free prompts
     if (promptCount >= 2) {
       setShowAuthPrompt(true);
       return;
@@ -80,7 +76,6 @@ const Scout = () => {
     
     setIsLoading(true);
     
-    // Increment prompt count
     setPromptCount(prevCount => prevCount + 1);
     
     setTimeout(() => {
@@ -111,7 +106,6 @@ reasons:
 1. Balanced Roles: The team has a good mix of agents covering all essential roles -
 controller for smokes, initiator for intel, sentinel for site anchoring, and duelists for entry.`);
       
-      // Populate player cards and map cards after a successful prompt
       setPlayerCards([
         {
           name: "S0M",
@@ -198,15 +192,19 @@ controller for smokes, initiator for intel, sentinel for site anchoring, and due
             </div>
           </Link>
         </div>
-        <Button variant="outline" size="icon" className="rounded-full">
-          <Users className="h-5 w-5" />
+        <Button variant="outline" size="icon" className="rounded-full" asChild>
+          <Link to="/signin">
+            <Users className="h-5 w-5" />
+          </Link>
         </Button>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
         <div className="border-r border-border p-4 flex flex-col items-center">
-          <Button variant="ghost" size="icon">
-            <Users className="h-5 w-5" />
+          <Button variant="ghost" size="icon" asChild>
+            <Link to="/signin">
+              <Users className="h-5 w-5" />
+            </Link>
           </Button>
         </div>
 
@@ -221,8 +219,12 @@ controller for smokes, initiator for intel, sentinel for site anchoring, and due
                 <p className="font-semibold mb-2">Free trial limit reached!</p>
                 <p className="mb-4">You've used your 2 free prompts. Sign up or sign in to continue using SCOUTANT.</p>
                 <div className="flex gap-3">
-                  <Button className="bg-white text-amber-500 hover:bg-white/90">Sign Up</Button>
-                  <Button variant="outline" className="border-white text-white hover:bg-amber-600">Sign In</Button>
+                  <Button className="bg-white text-amber-500 hover:bg-white/90" asChild>
+                    <Link to="/signup">Sign Up</Link>
+                  </Button>
+                  <Button variant="outline" className="border-white text-white hover:bg-amber-600" asChild>
+                    <Link to="/signin">Sign In</Link>
+                  </Button>
                 </div>
               </motion.div>
             )}
