@@ -295,6 +295,16 @@ Here's what the data reveals about tournament strategies:`
 
   const handleLogout = () => {
     auth.logout();
+    
+    setPromptHistory([]);
+    localStorage.removeItem("scoutant-prompt-history");
+    
+    setPromptCount(0);
+    localStorage.removeItem("scoutant-prompt-count");
+    
+    setPlayerCards([]);
+    setMapCards([]);
+    
     toast.success("Logged out successfully");
     navigate('/signin');
   };
