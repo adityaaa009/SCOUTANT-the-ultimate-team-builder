@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -19,6 +18,7 @@ import { auth } from "@/lib/auth";
 import { useAutoLogout } from "@/hooks/use-auto-logout";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { fetchScoutantResponse } from "@/lib/api";
 
 interface Prompt {
   id: string;
@@ -65,7 +65,6 @@ const Scout = () => {
   const isMobile = useIsMobile();
   const messageEndRef = useRef<HTMLDivElement>(null);
   
-  // Use the auto logout hook
   useAutoLogout();
 
   useEffect(() => {
@@ -81,12 +80,10 @@ const Scout = () => {
   }, [promptCount, isAuthenticated]);
 
   useEffect(() => {
-    // Save prompt history to localStorage
     localStorage.setItem("scoutant-prompt-history", JSON.stringify(promptHistory));
   }, [promptHistory]);
 
   useEffect(() => {
-    // Scroll to bottom when new messages are added
     messageEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [promptHistory]);
 
@@ -235,7 +232,7 @@ Here's what the data reveals about tournament strategies:`
     }));
   };
 
-  const handlePromptSubmit = () => {
+  const handlePromptSubmit = async () => {
     if (!prompt.trim()) return;
     
     if (promptCount >= 2 && !isAuthenticated) {
@@ -244,33 +241,65 @@ Here's what the data reveals about tournament strategies:`
     }
     
     setIsLoading(true);
-    
     setPromptCount(prevCount => prevCount + 1);
     
-    setTimeout(() => {
-      const dynamicResponse = generateDynamicResponse(prompt);
-      setResponse(dynamicResponse);
-      
-      const newPlayerCards = generateRandomPlayerData();
-      const newMapCards = generateRandomMapData();
-      
-      setPlayerCards(newPlayerCards);
-      setMapCards(newMapCards);
-      
-      // Add to prompt history
+    try {
+      const newPromptId = Date.now().toString();
       const newPrompt: Prompt = {
-        id: Date.now().toString(),
+        id: newPromptId,
         text: prompt,
-        response: dynamicResponse,
+        response: "Thinking...",
         timestamp: new Date()
       };
       
       setPromptHistory(prev => [...prev, newPrompt]);
       
-      // Clear current prompt
       setPrompt("");
+      
+      const aiResult = await fetchScoutantResponse(prompt);
+      
+      if (aiResult.error) {
+        toast.error(`AI Error: ${aiResult.error}`);
+        setPromptHistory(prev => 
+          prev.map(item => 
+            item.id === newPromptId 
+              ? { ...item, response: "Sorry, I couldn't process that request. Please try again." } 
+              : item
+          )
+        );
+      } else {
+        const responseText = aiResult.text || aiResult.response || "No response text provided";
+        
+        setPromptHistory(prev => 
+          prev.map(item => 
+            item.id === newPromptId 
+              ? { ...item, response: responseText } 
+              : item
+          )
+        );
+        
+        setResponse(responseText);
+        
+        const newPlayerCards = generateRandomPlayerData();
+        const newMapCards = generateRandomMapData();
+        
+        setPlayerCards(newPlayerCards);
+        setMapCards(newMapCards);
+      }
+    } catch (error) {
+      console.error("Error in handlePromptSubmit:", error);
+      toast.error("Failed to get response. Please try again.");
+      
+      setPromptHistory(prev => 
+        prev.map(item => 
+          item.id === Date.now().toString() 
+            ? { ...item, response: "An error occurred while processing your request." } 
+            : item
+        )
+      );
+    } finally {
       setIsLoading(false);
-    }, 2000);
+    }
   };
 
   const handleLogout = () => {
