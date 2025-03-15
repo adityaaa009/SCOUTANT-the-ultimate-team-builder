@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+
+import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { 
@@ -8,12 +9,23 @@ import {
   Target, 
   Gamepad, 
   Mic,
-  BarChart
+  BarChart,
+  LogOut
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { auth } from "@/lib/auth";
+import { useAutoLogout } from "@/hooks/use-auto-logout";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
+interface Prompt {
+  id: string;
+  text: string;
+  response: string;
+  timestamp: Date;
+}
 
 interface PlayerCard {
   name: string;
@@ -44,6 +56,17 @@ const Scout = () => {
   const [mapCards, setMapCards] = useState<MapCard[]>([]);
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [promptHistory, setPromptHistory] = useState<Prompt[]>(() => {
+    const savedHistory = localStorage.getItem("scoutant-prompt-history");
+    return savedHistory ? JSON.parse(savedHistory) : [];
+  });
+  
+  const navigate = useNavigate();
+  const isMobile = useIsMobile();
+  const messageEndRef = useRef<HTMLDivElement>(null);
+  
+  // Use the auto logout hook
+  useAutoLogout();
 
   useEffect(() => {
     setIsAuthenticated(auth.isAuthenticated());
@@ -56,6 +79,16 @@ const Scout = () => {
       setShowAuthPrompt(true);
     }
   }, [promptCount, isAuthenticated]);
+
+  useEffect(() => {
+    // Save prompt history to localStorage
+    localStorage.setItem("scoutant-prompt-history", JSON.stringify(promptHistory));
+  }, [promptHistory]);
+
+  useEffect(() => {
+    // Scroll to bottom when new messages are added
+    messageEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [promptHistory]);
 
   useEffect(() => {
     if (mapCards.length > 0) {
@@ -218,11 +251,32 @@ Here's what the data reveals about tournament strategies:`
       const dynamicResponse = generateDynamicResponse(prompt);
       setResponse(dynamicResponse);
       
-      setPlayerCards(generateRandomPlayerData());
-      setMapCards(generateRandomMapData());
+      const newPlayerCards = generateRandomPlayerData();
+      const newMapCards = generateRandomMapData();
       
+      setPlayerCards(newPlayerCards);
+      setMapCards(newMapCards);
+      
+      // Add to prompt history
+      const newPrompt: Prompt = {
+        id: Date.now().toString(),
+        text: prompt,
+        response: dynamicResponse,
+        timestamp: new Date()
+      };
+      
+      setPromptHistory(prev => [...prev, newPrompt]);
+      
+      // Clear current prompt
+      setPrompt("");
       setIsLoading(false);
     }, 2000);
+  };
+
+  const handleLogout = () => {
+    auth.logout();
+    toast.success("Logged out successfully");
+    navigate('/signin');
   };
 
   return (
@@ -236,11 +290,18 @@ Here's what the data reveals about tournament strategies:`
             </div>
           </Link>
         </div>
-        <Button variant="outline" size="icon" className="rounded-full" asChild>
-          <Link to={isAuthenticated ? "/scout" : "/signin"}>
-            <Users className="h-5 w-5" />
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          {isAuthenticated && (
+            <Button variant="outline" size="icon" className="rounded-full" onClick={handleLogout}>
+              <LogOut className="h-5 w-5" />
+            </Button>
+          )}
+          <Button variant="outline" size="icon" className="rounded-full" asChild>
+            <Link to={isAuthenticated ? "/scout" : "/signin"}>
+              <Users className="h-5 w-5" />
+            </Link>
+          </Button>
+        </div>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
@@ -255,10 +316,15 @@ Here's what the data reveals about tournament strategies:`
               <BarChart className="h-5 w-5" />
             </Link>
           </Button>
+          {isAuthenticated && (
+            <Button variant="ghost" size="icon" onClick={handleLogout}>
+              <LogOut className="h-5 w-5" />
+            </Button>
+          )}
         </div>
 
         <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="flex-1 overflow-y-auto p-6">
+          <ScrollArea className="flex-1 p-6">
             {showAuthPrompt && !isAuthenticated && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -278,25 +344,47 @@ Here's what the data reveals about tournament strategies:`
               </motion.div>
             )}
 
-            {response && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="mb-6"
-              >
-                <div className="flex items-start gap-4">
-                  <div className="bg-primary/10 rounded-full p-2">
-                    <Search className="h-5 w-5 text-primary" />
-                  </div>
-                  <div className="space-y-4 flex-1">
-                    <p>{response}</p>
-                  </div>
-                </div>
-              </motion.div>
+            {promptHistory.length > 0 && (
+              <div className="space-y-8 mb-4">
+                {promptHistory.map((item) => (
+                  <motion.div
+                    key={item.id}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="space-y-6"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="bg-muted rounded-full p-2 flex-shrink-0">
+                        <Users className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="mb-1">{item.text}</p>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(item.timestamp).toLocaleTimeString()}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start gap-4">
+                      <div className="bg-primary/10 rounded-full p-2 flex-shrink-0">
+                        <Search className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="mb-1 whitespace-pre-line">{item.response}</p>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(item.timestamp).toLocaleTimeString()}
+                        </span>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
             )}
-          </div>
+            
+            <div ref={messageEndRef} />
+          </ScrollArea>
 
-          <div className="border-t border-border p-4">
+          <div className="border-t border-border p-4 sticky bottom-0 bg-background">
             <div className="relative flex items-center">
               <Mic className="absolute left-4 h-5 w-5 text-muted-foreground" />
               <input
@@ -315,97 +403,101 @@ Here's what the data reveals about tournament strategies:`
                   className={`rounded-full ${prompt.trim() ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-500'}`}
                 >
                   <Send className="h-4 w-4" />
-                  <span>SEND</span>
+                  <span className={isMobile ? "" : "ml-1"}>
+                    {isMobile ? "" : "SEND"}
+                  </span>
                 </Button>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="w-96 border-l border-border overflow-y-auto p-4 flex flex-col gap-6">
-          <div>
-            <div className="bg-red-500 text-white font-bold px-4 py-2 mb-4 inline-block">
-              TEAM FORMATION
-            </div>
-            <div className="space-y-4">
-              {playerCards.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Target className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                  <p>Submit a prompt to see team formation</p>
-                </div>
-              )}
-              {playerCards.map((player, index) => (
-                <Card key={index} className="overflow-hidden border-border">
-                  <div className="flex">
-                    <div className="w-1/3 bg-card relative">
-                      <img 
-                        src={player.agentImageUrl} 
-                        alt={player.agent} 
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute top-2 left-2 bg-black/50 px-2 py-1 text-xs">
-                        {player.agent}
-                      </div>
-                      <div className="absolute bottom-2 left-2 bg-black/50 px-2 py-1 text-xs">
-                        {player.name}
-                      </div>
-                    </div>
-                    <div className="w-2/3 p-3">
-                      <div className="grid grid-cols-1 gap-1">
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs">KILLS / ROUND</span>
-                          <span className="text-xs font-bold text-red-500">{player.kpr}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs">DEATHS / ROUND</span>
-                          <span className="text-xs font-bold text-red-500">{player.dpr}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs">GAMES</span>
-                          <span className="text-xs font-bold text-red-500">{player.games}</span>
-                        </div>
-                      </div>
-                    </div>
+        {!isMobile && (
+          <div className="w-96 border-l border-border overflow-y-auto p-4 flex flex-col gap-6">
+            <div>
+              <div className="bg-red-500 text-white font-bold px-4 py-2 mb-4 inline-block">
+                TEAM FORMATION
+              </div>
+              <div className="space-y-4">
+                {playerCards.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Target className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                    <p>Submit a prompt to see team formation</p>
                   </div>
-                </Card>
-              ))}
+                )}
+                {playerCards.map((player, index) => (
+                  <Card key={index} className="overflow-hidden border-border">
+                    <div className="flex">
+                      <div className="w-1/3 bg-card relative">
+                        <img 
+                          src={player.agentImageUrl} 
+                          alt={player.agent} 
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute top-2 left-2 bg-black/50 px-2 py-1 text-xs">
+                          {player.agent}
+                        </div>
+                        <div className="absolute bottom-2 left-2 bg-black/50 px-2 py-1 text-xs">
+                          {player.name}
+                        </div>
+                      </div>
+                      <div className="w-2/3 p-3">
+                        <div className="grid grid-cols-1 gap-1">
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs">KILLS / ROUND</span>
+                            <span className="text-xs font-bold text-red-500">{player.kpr}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs">DEATHS / ROUND</span>
+                            <span className="text-xs font-bold text-red-500">{player.dpr}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs">GAMES</span>
+                            <span className="text-xs font-bold text-red-500">{player.games}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
             </div>
-          </div>
 
-          <div>
-            <div className="bg-red-500 text-white font-bold px-4 py-2 mb-4 inline-block">
-              TOP MAPS
-            </div>
-            <div className="grid grid-cols-1 gap-4">
-              {mapCards.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Gamepad className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                  <p>Submit a prompt to see top maps</p>
-                </div>
-              )}
-              {mapCards.map((map, index) => (
-                <Card key={index} className="relative overflow-hidden h-32">
-                  <img 
-                    src={map.imageUrl} 
-                    alt={map.name}
-                    className="absolute inset-0 w-full h-full object-cover"
-                    loading="eager"
-                    onError={(e) => {
-                      e.currentTarget.src = "/placeholder.svg";
-                      toast.error(`Failed to load map image: ${map.name}`);
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-black/50 flex justify-center items-center">
-                    <span className="text-xl font-bold text-white">{map.name}</span>
+            <div>
+              <div className="bg-red-500 text-white font-bold px-4 py-2 mb-4 inline-block">
+                TOP MAPS
+              </div>
+              <div className="grid grid-cols-1 gap-4">
+                {mapCards.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Gamepad className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                    <p>Submit a prompt to see top maps</p>
                   </div>
-                  <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 text-sm font-bold">
-                    {map.rank}
-                  </div>
-                </Card>
-              ))}
+                )}
+                {mapCards.map((map, index) => (
+                  <Card key={index} className="relative overflow-hidden h-32">
+                    <img 
+                      src={map.imageUrl} 
+                      alt={map.name}
+                      className="absolute inset-0 w-full h-full object-cover"
+                      loading="eager"
+                      onError={(e) => {
+                        e.currentTarget.src = "/placeholder.svg";
+                        toast.error(`Failed to load map image: ${map.name}`);
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-black/50 flex justify-center items-center">
+                      <span className="text-xl font-bold text-white">{map.name}</span>
+                    </div>
+                    <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 text-sm font-bold">
+                      {map.rank}
+                    </div>
+                  </Card>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
