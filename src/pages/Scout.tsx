@@ -256,20 +256,9 @@ Here's what the data reveals about tournament strategies:`
       
       setPrompt("");
       
-      const aiResult = await fetchScoutantResponse(prompt);
+      const responseText = generateDynamicResponse(prompt);
       
-      if (aiResult.error) {
-        toast.error(`AI Error: ${aiResult.error}`);
-        setPromptHistory(prev => 
-          prev.map(item => 
-            item.id === newPromptId 
-              ? { ...item, response: "Sorry, I couldn't process that request. Please try again." } 
-              : item
-          )
-        );
-      } else {
-        const responseText = aiResult.text || aiResult.response || "No response text provided";
-        
+      setTimeout(() => {
         setPromptHistory(prev => 
           prev.map(item => 
             item.id === newPromptId 
@@ -285,7 +274,10 @@ Here's what the data reveals about tournament strategies:`
         
         setPlayerCards(newPlayerCards);
         setMapCards(newMapCards);
-      }
+        
+        setIsLoading(false);
+      }, 1500);
+      
     } catch (error) {
       console.error("Error in handlePromptSubmit:", error);
       toast.error("Failed to get response. Please try again.");
@@ -297,7 +289,6 @@ Here's what the data reveals about tournament strategies:`
             : item
         )
       );
-    } finally {
       setIsLoading(false);
     }
   };
