@@ -4,7 +4,7 @@
 
 ## Introduction
 
-SCOUTANT is an advanced team builder application designed to help you create and manage your dream team efficiently. Whether you're forming a sports team, a project team, or any other type of collaborative group, SCOUTANT provides the tools you need to organize and optimize your team's performance.
+SCOUTANT is an advanced team builder application designed to help you create and manage your dream team efficiently. Whether you're forming a sports team, a project team, or any other type of collaboration, SCOUTANT has you covered.
 
 ## Features
 
@@ -25,30 +25,30 @@ SCOUTANT is built using modern web technologies to ensure a high-quality, respon
 
 ## Live Demo
 
-Check out the live hosted version of SCOUTANT at [SCOUTANT Live](https://scoutant-crew-calculator.lovable.app/).
+Check out the live hosted version of SCOUTANT at [SCOUTANT Live](https://scoutant.netlify.app/).
 
 ## Getting Started
 
 To get started with SCOUTANT, follow these steps:
 
 1. **Clone the Repository**:
-   ```bash
-   git clone https://github.com/adityaaa009/SCOUTANT-the-ultimate-team-builder.git
-   cd SCOUTANT-the-ultimate-team-builder
-   ```
+    ```bash
+    git clone https://github.com/adityaaa009/SCOUTANT-the-ultimate-team-builder.git
+    cd SCOUTANT-the-ultimate-team-builder
+    ```
 
 2. **Install Dependencies**:
-   ```bash
-   npm install
-   ```
+    ```bash
+    npm install
+    ```
 
 3. **Run the Application**:
-   ```bash
-   npm start
-   ```
+    ```bash
+    npm start
+    ```
 
 4. **Open Your Browser**:
-   Navigate to `http://localhost:3000` to access the application.
+    Navigate to `http://localhost:3000` to access the application.
 
 ## Contributing
 
