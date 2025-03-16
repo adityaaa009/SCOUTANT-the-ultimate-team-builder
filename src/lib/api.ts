@@ -1,3 +1,4 @@
+
 import { fetchMultiplePlayersData } from "./vlrDataFetcher";
 import { recommendTeamComposition } from "./playerAnalysis";
 
@@ -28,7 +29,12 @@ export async function fetchScoutantResponse(prompt: string): Promise<any> {
     return generateTextResponse(prompt);
   } catch (error) {
     console.error("Error fetching Scoutant response:", error);
-    return { error: error.message };
+    return { 
+      success: false, 
+      error: error.message,
+      type: "error",
+      data: `An error occurred: ${error.message}`
+    };
   }
 }
 

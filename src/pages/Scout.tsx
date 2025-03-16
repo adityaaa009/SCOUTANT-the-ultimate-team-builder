@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -227,24 +226,26 @@ const Scout = () => {
       
       setPrompt("");
       
-      // Use the new enhanced API response
       const apiResponse = await fetchScoutantResponse(prompt);
       
       if (apiResponse.error) {
         throw new Error(apiResponse.error);
       }
       
-      // Update the response based on the type of response
       let responseText = "";
       
-      if (apiResponse.type === "team_composition" && apiResponse.data.success) {
+      if (apiResponse.type === "team_composition" && apiResponse.data && apiResponse.data.success) {
         responseText = `Based on analysis of ${apiResponse.playerNames.join(', ')}, I've identified optimal roles and agents for each player.
 
 Team composition analysis complete. Here's the recommended lineup:`;
         
         setTeamRecommendation(apiResponse.data);
-      } else {
+      } else if (apiResponse.type === "text_response") {
         responseText = apiResponse.data;
+      } else if (apiResponse.type === "error") {
+        responseText = `Error: ${apiResponse.data}`;
+      } else {
+        responseText = "I couldn't process that request. Please try again with a different query.";
       }
       
       setTimeout(() => {
@@ -571,4 +572,3 @@ Team composition analysis complete. Here's the recommended lineup:`;
 };
 
 export default Scout;
-
