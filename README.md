@@ -1,6 +1,6 @@
 # SCOUTANT - The Ultimate Team Builder
 
-![SCOUTANT Logo](path/to/logo.png)
+![SCOUTANT Logo](path/to/scoutant_logo.webp)
 
 ## Introduction
 
