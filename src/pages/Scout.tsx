@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -9,7 +10,8 @@ import {
   Gamepad, 
   Mic,
   BarChart,
-  LogOut
+  LogOut,
+  PieChart
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -19,6 +21,8 @@ import { useAutoLogout } from "@/hooks/use-auto-logout";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { fetchScoutantResponse } from "@/lib/api";
+import PlayerSearchForm from "@/components/PlayerSearchForm";
+import EnhancedTeamDisplay from "@/components/EnhancedTeamDisplay";
 
 interface Prompt {
   id: string;
@@ -44,6 +48,23 @@ interface MapCard {
   imageUrl: string;
 }
 
+interface TeamRecommendation {
+  success: boolean;
+  message?: string;
+  lineup?: Array<{
+    name: string;
+    agent: string;
+    role: string;
+    confidence: number;
+    stats: {
+      acs: number;
+      kd: number;
+      adr: number;
+      kast: string;
+    }
+  }>;
+}
+
 const Scout = () => {
   const [prompt, setPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -60,6 +81,9 @@ const Scout = () => {
     const savedHistory = localStorage.getItem("scoutant-prompt-history");
     return savedHistory ? JSON.parse(savedHistory) : [];
   });
+  const [playerData, setPlayerData] = useState<any[]>([]);
+  const [teamRecommendation, setTeamRecommendation] = useState<TeamRecommendation | null>(null);
+  const [analysisMode, setAnalysisMode] = useState<"chat" | "direct">("chat");
   
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -111,59 +135,6 @@ const Scout = () => {
 
   const getRandomNumber = (min: number, max: number) => {
     return Math.floor(Math.random() * (max - min + 1) + min);
-  };
-
-  const generateDynamicResponse = (userPrompt: string) => {
-    const keywords = {
-      team: ["composition", "roster", "lineup", "squad", "players"],
-      strategy: ["tactics", "approach", "plan", "method", "formation"],
-      map: ["map", "maps", "arena", "venue", "location"],
-      agent: ["agent", "character", "hero", "operator"],
-      tournament: ["tournament", "competition", "championship", "event"]
-    };
-
-    const promptLower = userPrompt.toLowerCase();
-    
-    let responseType = "";
-    
-    for (const [key, words] of Object.entries(keywords)) {
-      if (words.some(word => promptLower.includes(word))) {
-        responseType = key;
-        break;
-      }
-    }
-    
-    if (!responseType) responseType = "team";
-    
-    const responses = {
-      team: `Based on your request about "${userPrompt}", I've analyzed recent performance data from VCT International to create an optimal team composition.
-
-Data analysis complete. Creating a balanced roster that complements player strengths...
-
-Here's the recommended lineup:`,
-      strategy: `I've evaluated your query: "${userPrompt}" and developed strategic recommendations based on current meta analysis.
-
-Processing tactical data from recent professional matches...
-
-Strategy formation complete. Here are my tactical recommendations:`,
-      map: `Analyzing your request: "${userPrompt}" against the current map pool and meta.
-
-Evaluating win rates and composition effectiveness across various maps...
-
-Analysis complete. Here are the optimal maps for your scenario:`,
-      agent: `For your query about "${userPrompt}", I've assessed agent performance data across competitive tiers.
-
-Analyzing agent pick rates, win rates and utility effectiveness...
-
-Here are my agent recommendations based on your requirements:`,
-      tournament: `Based on your question about "${userPrompt}", I've compiled relevant tournament data.
-
-Analyzing recent competition results and team performances...
-
-Here's what the data reveals about tournament strategies:`
-    };
-    
-    return responses[responseType as keyof typeof responses];
   };
 
   const generateRandomPlayerData = () => {
@@ -256,7 +227,25 @@ Here's what the data reveals about tournament strategies:`
       
       setPrompt("");
       
-      const responseText = generateDynamicResponse(prompt);
+      // Use the new enhanced API response
+      const apiResponse = await fetchScoutantResponse(prompt);
+      
+      if (apiResponse.error) {
+        throw new Error(apiResponse.error);
+      }
+      
+      // Update the response based on the type of response
+      let responseText = "";
+      
+      if (apiResponse.type === "team_composition" && apiResponse.data.success) {
+        responseText = `Based on analysis of ${apiResponse.playerNames.join(', ')}, I've identified optimal roles and agents for each player.
+
+Team composition analysis complete. Here's the recommended lineup:`;
+        
+        setTeamRecommendation(apiResponse.data);
+      } else {
+        responseText = apiResponse.data;
+      }
       
       setTimeout(() => {
         setPromptHistory(prev => 
@@ -304,9 +293,23 @@ Here's what the data reveals about tournament strategies:`
     
     setPlayerCards([]);
     setMapCards([]);
+    setPlayerData([]);
+    setTeamRecommendation(null);
     
     toast.success("Logged out successfully");
     navigate('/signin');
+  };
+
+  const handlePlayerDataFetched = (data: any[]) => {
+    setPlayerData(data);
+  };
+
+  const handleTeamRecommendation = (recommendation: TeamRecommendation) => {
+    setTeamRecommendation(recommendation);
+  };
+
+  const toggleAnalysisMode = () => {
+    setAnalysisMode(prev => prev === "chat" ? "direct" : "chat");
   };
 
   return (
@@ -321,6 +324,17 @@ Here's what the data reveals about tournament strategies:`
           </Link>
         </div>
         <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm"
+            className="gap-1" 
+            onClick={toggleAnalysisMode}
+          >
+            {analysisMode === "chat" ? <PieChart className="h-4 w-4" /> : <Search className="h-4 w-4" />}
+            <span className="hidden sm:inline-block">
+              {analysisMode === "chat" ? "Direct Analysis" : "Chat"}
+            </span>
+          </Button>
           {isAuthenticated && (
             <Button variant="outline" size="icon" className="rounded-full" onClick={handleLogout}>
               <LogOut className="h-5 w-5" />
@@ -374,7 +388,22 @@ Here's what the data reveals about tournament strategies:`
               </motion.div>
             )}
 
-            {promptHistory.length > 0 && (
+            {analysisMode === "direct" && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-6"
+              >
+                <PlayerSearchForm 
+                  onPlayerDataFetched={handlePlayerDataFetched}
+                  onTeamRecommendation={handleTeamRecommendation}
+                  isLoading={isLoading}
+                  setIsLoading={setIsLoading}
+                />
+              </motion.div>
+            )}
+
+            {analysisMode === "chat" && promptHistory.length > 0 && (
               <div className="space-y-8 mb-4">
                 {promptHistory.map((item) => (
                   <motion.div
@@ -414,32 +443,34 @@ Here's what the data reveals about tournament strategies:`
             <div ref={messageEndRef} />
           </ScrollArea>
 
-          <div className="border-t border-border p-4 sticky bottom-0 bg-background">
-            <div className="relative flex items-center">
-              <Mic className="absolute left-4 h-5 w-5 text-muted-foreground" />
-              <input
-                type="text"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Build the team..."
-                className="w-full rounded-full bg-card/70 border border-border py-3 pl-12 pr-20 focus:outline-none focus:border-primary transition-all"
-              />
-              <div className="absolute right-2 flex gap-2">
-                <Button 
-                  disabled={!prompt.trim() || isLoading} 
-                  onClick={handlePromptSubmit}
-                  size="sm" 
-                  className={`rounded-full ${prompt.trim() ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-500'}`}
-                >
-                  <Send className="h-4 w-4" />
-                  <span className={isMobile ? "" : "ml-1"}>
-                    {isMobile ? "" : "SEND"}
-                  </span>
-                </Button>
+          {analysisMode === "chat" && (
+            <div className="border-t border-border p-4 sticky bottom-0 bg-background">
+              <div className="relative flex items-center">
+                <Mic className="absolute left-4 h-5 w-5 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Build the team..."
+                  className="w-full rounded-full bg-card/70 border border-border py-3 pl-12 pr-20 focus:outline-none focus:border-primary transition-all"
+                />
+                <div className="absolute right-2 flex gap-2">
+                  <Button 
+                    disabled={!prompt.trim() || isLoading} 
+                    onClick={handlePromptSubmit}
+                    size="sm" 
+                    className={`rounded-full ${prompt.trim() ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-500'}`}
+                  >
+                    <Send className="h-4 w-4" />
+                    <span className={isMobile ? "" : "ml-1"}>
+                      {isMobile ? "" : "SEND"}
+                    </span>
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         {!isMobile && (
@@ -449,47 +480,53 @@ Here's what the data reveals about tournament strategies:`
                 TEAM FORMATION
               </div>
               <div className="space-y-4">
-                {playerCards.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Target className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                    <p>Submit a prompt to see team formation</p>
-                  </div>
+                {analysisMode === "direct" ? (
+                  <EnhancedTeamDisplay recommendation={teamRecommendation} />
+                ) : (
+                  <>
+                    {playerCards.length === 0 && (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Target className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                        <p>Submit a prompt to see team formation</p>
+                      </div>
+                    )}
+                    {playerCards.map((player, index) => (
+                      <Card key={index} className="overflow-hidden border-border">
+                        <div className="flex">
+                          <div className="w-1/3 bg-card relative">
+                            <img 
+                              src={player.agentImageUrl} 
+                              alt={player.agent} 
+                              className="w-full h-full object-cover"
+                            />
+                            <div className="absolute top-2 left-2 bg-black/50 px-2 py-1 text-xs">
+                              {player.agent}
+                            </div>
+                            <div className="absolute bottom-2 left-2 bg-black/50 px-2 py-1 text-xs">
+                              {player.name}
+                            </div>
+                          </div>
+                          <div className="w-2/3 p-3">
+                            <div className="grid grid-cols-1 gap-1">
+                              <div className="flex justify-between items-center">
+                                <span className="text-xs">KILLS / ROUND</span>
+                                <span className="text-xs font-bold text-red-500">{player.kpr}</span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-xs">DEATHS / ROUND</span>
+                                <span className="text-xs font-bold text-red-500">{player.dpr}</span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-xs">GAMES</span>
+                                <span className="text-xs font-bold text-red-500">{player.games}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </>
                 )}
-                {playerCards.map((player, index) => (
-                  <Card key={index} className="overflow-hidden border-border">
-                    <div className="flex">
-                      <div className="w-1/3 bg-card relative">
-                        <img 
-                          src={player.agentImageUrl} 
-                          alt={player.agent} 
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute top-2 left-2 bg-black/50 px-2 py-1 text-xs">
-                          {player.agent}
-                        </div>
-                        <div className="absolute bottom-2 left-2 bg-black/50 px-2 py-1 text-xs">
-                          {player.name}
-                        </div>
-                      </div>
-                      <div className="w-2/3 p-3">
-                        <div className="grid grid-cols-1 gap-1">
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs">KILLS / ROUND</span>
-                            <span className="text-xs font-bold text-red-500">{player.kpr}</span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs">DEATHS / ROUND</span>
-                            <span className="text-xs font-bold text-red-500">{player.dpr}</span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs">GAMES</span>
-                            <span className="text-xs font-bold text-red-500">{player.games}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
               </div>
             </div>
 
@@ -534,3 +571,4 @@ Here's what the data reveals about tournament strategies:`
 };
 
 export default Scout;
+
