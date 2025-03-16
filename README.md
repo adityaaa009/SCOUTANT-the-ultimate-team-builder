@@ -1,69 +1,68 @@
-# Welcome to your Lovable project
+# SCOUTANT - The Ultimate Team Builder
 
-## Project info
+![SCOUTANT Logo](path/to/logo.png)
 
-**URL**: https://lovable.dev/projects/3285a08e-50a6-4254-9279-63962a5aa6b5
+## Introduction
 
-## How can I edit this code?
+SCOUTANT is an advanced team builder application designed to help you create and manage your dream team efficiently. Whether you're forming a sports team, a project team, or any other type of collaborative group, SCOUTANT provides the tools you need to organize and optimize your team's performance.
 
-There are several ways of editing your application.
+## Features
 
-**Use Lovable**
+- **User-Friendly Interface**: Intuitive design ensures ease of use for all users.
+- **Real-Time Collaboration**: Work with your team members in real-time, making updates and changes seamlessly.
+- **Advanced Analytics**: Gain insights into team performance with detailed analytics and reports.
+- **Customizable Team Profiles**: Create detailed profiles for each team member, including skills, roles, and contributions.
+- **Automated Notifications**: Stay updated with automated notifications for team activities and updates.
+- **Secure Data Handling**: Ensure the privacy and security of your team's data with robust security measures.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/3285a08e-50a6-4254-9279-63962a5aa6b5) and start prompting.
+## Tech Stack
 
-Changes made via Lovable will be committed automatically to this repo.
+SCOUTANT is built using modern web technologies to ensure a high-quality, responsive, and secure application experience.
 
-**Use your preferred IDE**
+- **TypeScript**: The primary programming language used for the application, providing strong typing and advanced features.
+- **CSS**: Used for styling the application, ensuring a visually appealing and responsive design.
+- **Other Technologies**: Includes various libraries and frameworks that enhance the functionality and performance of the application.
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## Live Demo
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+Check out the live hosted version of SCOUTANT at [SCOUTANT Live](https://scoutant-crew-calculator.lovable.app/).
 
-Follow these steps:
+## Getting Started
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+To get started with SCOUTANT, follow these steps:
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+1. **Clone the Repository**:
+   ```bash
+   git clone https://github.com/adityaaa009/SCOUTANT-the-ultimate-team-builder.git
+   cd SCOUTANT-the-ultimate-team-builder
+   ```
 
-# Step 3: Install the necessary dependencies.
-npm i
+2. **Install Dependencies**:
+   ```bash
+   npm install
+   ```
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+3. **Run the Application**:
+   ```bash
+   npm start
+   ```
 
-**Edit a file directly in GitHub**
+4. **Open Your Browser**:
+   Navigate to `http://localhost:3000` to access the application.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Contributing
 
-**Use GitHub Codespaces**
+We welcome contributions from the community! If you'd like to contribute to SCOUTANT, please follow these steps:
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+1. Fork the repository.
+2. Create a new branch for your feature or bug fix.
+3. Commit your changes and push the branch to your fork.
+4. Open a pull request with a detailed description of your changes.
 
-## What technologies are used for this project?
+## License
 
-This project is built with .
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more information.
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Contact
 
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/3285a08e-50a6-4254-9279-63962a5aa6b5) and click on Share -> Publish.
-
-## I want to use a custom domain - is that possible?
-
-We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
+For any questions or feedback, please feel free to reach out to the project maintainer at [adityaaa009@gmail.com](mailto:adityaaa009@gmail.com).
