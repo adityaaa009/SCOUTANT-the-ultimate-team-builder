@@ -1,6 +1,6 @@
-
 import { fetchMultiplePlayersData } from "./vlrDataFetcher";
 import { recommendTeamComposition } from "./playerAnalysis";
+import { supabase } from "@/integrations/supabase/client";
 
 /**
  * Fetch AI response from Supabase Edge Function
@@ -14,19 +14,95 @@ export async function fetchScoutantResponse(prompt: string): Promise<any> {
     if (playerNames.length > 0) {
       console.log("Detected player names in prompt:", playerNames);
       const playersData = await fetchMultiplePlayersData(playerNames);
-      const recommendation = recommendTeamComposition(playersData);
       
-      return {
-        success: true,
-        type: "team_composition",
-        data: recommendation,
-        prompt: prompt,
-        playerNames: playerNames
-      };
+      // Use OpenAI for enhanced player analysis
+      try {
+        const aiResponse = await supabase.functions.invoke("scoutant-ai", {
+          body: {
+            action: "analyze_players",
+            data: { players: playersData }
+          }
+        });
+        
+        if (aiResponse.error) {
+          throw new Error(aiResponse.error.message);
+        }
+        
+        const data = aiResponse.data;
+        
+        if (data.success) {
+          console.log("AI player analysis:", data);
+          return {
+            success: true,
+            type: "team_composition",
+            data: data,
+            prompt: prompt,
+            playerNames: playerNames
+          };
+        }
+      } catch (aiError) {
+        console.error("Error with AI player analysis, falling back to algorithm:", aiError);
+        // Fall back to algorithmic recommendation if AI fails
+        const recommendation = recommendTeamComposition(playersData);
+        return {
+          success: true,
+          type: "team_composition",
+          data: recommendation,
+          prompt: prompt,
+          playerNames: playerNames
+        };
+      }
     }
     
-    // If no player names found, use a text-based response
-    return generateTextResponse(prompt);
+    // If it's an agent selection query, handle it
+    if (isAgentSelectionQuery(prompt)) {
+      const mapName = extractMapName(prompt);
+      if (mapName) {
+        try {
+          const aiResponse = await supabase.functions.invoke("scoutant-ai", {
+            body: {
+              action: "agent_selection",
+              data: { map: mapName }
+            }
+          });
+          
+          if (aiResponse.error) {
+            throw new Error(aiResponse.error.message);
+          }
+          
+          return {
+            success: true,
+            type: "agent_selection",
+            data: aiResponse.data,
+            prompt: prompt,
+            mapName: mapName
+          };
+        } catch (error) {
+          console.error("Error with agent selection:", error);
+          throw error;
+        }
+      }
+    }
+    
+    // For all other queries, use the OpenAI-powered scout chat
+    try {
+      const aiResponse = await supabase.functions.invoke("scoutant-ai", {
+        body: {
+          action: "scout_chat",
+          data: { prompt }
+        }
+      });
+      
+      if (aiResponse.error) {
+        throw new Error(aiResponse.error.message);
+      }
+      
+      return aiResponse.data;
+    } catch (aiError) {
+      console.error("Error with AI chat, falling back to template response:", aiError);
+      // Fall back to template response if AI fails
+      return generateTextResponse(prompt);
+    }
   } catch (error) {
     console.error("Error fetching Scoutant response:", error);
     return { 
@@ -131,4 +207,38 @@ Here's what the data reveals about tournament strategies:`
     data: responses[responseType as keyof typeof responses],
     prompt: prompt
   };
+}
+
+/**
+ * Check if the prompt is asking for agent selection advice
+ */
+function isAgentSelectionQuery(prompt: string): boolean {
+  const promptLower = prompt.toLowerCase();
+  const agentSelectionKeywords = [
+    "agent selection", "which agent", "best agent", "agent for", 
+    "pick agent", "should i play", "agent on", "good agent",
+    "meta agent", "agent meta"
+  ];
+  
+  return agentSelectionKeywords.some(keyword => promptLower.includes(keyword));
+}
+
+/**
+ * Extract map name from the prompt
+ */
+function extractMapName(prompt: string): string | null {
+  const promptLower = prompt.toLowerCase();
+  const maps = [
+    "ascent", "bind", "breeze", "haven", "icebox", 
+    "split", "fracture", "pearl", "lotus", "sunset"
+  ];
+  
+  for (const map of maps) {
+    if (promptLower.includes(map)) {
+      // Capitalize first letter
+      return map.charAt(0).toUpperCase() + map.slice(1);
+    }
+  }
+  
+  return null;
 }

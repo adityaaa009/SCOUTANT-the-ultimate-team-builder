@@ -15,12 +15,15 @@ interface TeamMember {
     adr: number;
     kast: string;
   }
+  analysis?: string; // Added for OpenAI enhanced analysis
 }
 
 interface TeamRecommendation {
   success: boolean;
   message?: string;
   lineup?: TeamMember[];
+  teamAnalysis?: string; // Added for OpenAI enhanced analysis
+  rawAnalysis?: string; // For fallback when parsing fails
 }
 
 interface EnhancedTeamDisplayProps {
@@ -48,10 +51,28 @@ const EnhancedTeamDisplay: React.FC<EnhancedTeamDisplayProps> = ({ recommendatio
     );
   }
 
+  // Handle raw analysis fallback
+  if (recommendation.rawAnalysis) {
+    return (
+      <Card className="p-4">
+        <pre className="whitespace-pre-wrap text-sm">
+          {recommendation.rawAnalysis}
+        </pre>
+      </Card>
+    );
+  }
+
   const lineup = recommendation.lineup || [];
 
   return (
     <div className="space-y-4">
+      {recommendation.teamAnalysis && (
+        <Card className="p-4 bg-muted/50">
+          <h3 className="font-semibold mb-2">Team Analysis</h3>
+          <p className="text-sm">{recommendation.teamAnalysis}</p>
+        </Card>
+      )}
+      
       {lineup.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
           <Target className="h-12 w-12 mx-auto mb-3 opacity-50" />
@@ -86,6 +107,13 @@ const EnhancedTeamDisplay: React.FC<EnhancedTeamDisplayProps> = ({ recommendatio
                     {player.role}
                   </span>
                 </div>
+                
+                {player.analysis && (
+                  <div className="text-xs mb-2 italic bg-muted/50 p-2 rounded">
+                    {player.analysis}
+                  </div>
+                )}
+                
                 <div className="grid grid-cols-1 gap-1">
                   <div className="flex justify-between items-center">
                     <span className="text-xs">ACS</span>

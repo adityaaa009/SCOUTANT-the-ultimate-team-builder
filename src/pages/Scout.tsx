@@ -10,7 +10,8 @@ import {
   Mic,
   BarChart,
   LogOut,
-  PieChart
+  PieChart,
+  ListFilter
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -22,6 +23,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { fetchScoutantResponse } from "@/lib/api";
 import PlayerSearchForm from "@/components/PlayerSearchForm";
 import EnhancedTeamDisplay from "@/components/EnhancedTeamDisplay";
+import AgentSelectionAdvisor from "@/components/AgentSelectionAdvisor";
 
 interface Prompt {
   id: string;
@@ -82,7 +84,7 @@ const Scout = () => {
   });
   const [playerData, setPlayerData] = useState<any[]>([]);
   const [teamRecommendation, setTeamRecommendation] = useState<TeamRecommendation | null>(null);
-  const [analysisMode, setAnalysisMode] = useState<"chat" | "direct">("chat");
+  const [analysisMode, setAnalysisMode] = useState<"chat" | "direct" | "agent-selection">("chat");
   
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -240,6 +242,16 @@ const Scout = () => {
 Team composition analysis complete. Here's the recommended lineup:`;
         
         setTeamRecommendation(apiResponse.data);
+      } else if (apiResponse.type === "agent_selection" && apiResponse.data && apiResponse.data.success) {
+        responseText = `Based on your query about agents for ${apiResponse.mapName}, I've analyzed the current meta and map strategies.
+
+Here are my agent recommendations for ${apiResponse.mapName}:
+
+${apiResponse.data.recommendations.map((rec: any) => 
+  `- ${rec.agent} (${rec.role}): ${rec.reason}`
+).join('\n\n')}
+
+Strategy Notes: ${apiResponse.data.strategyNotes}`;
       } else if (apiResponse.type === "text_response") {
         responseText = apiResponse.data;
       } else if (apiResponse.type === "error") {
@@ -309,8 +321,8 @@ Team composition analysis complete. Here's the recommended lineup:`;
     setTeamRecommendation(recommendation);
   };
 
-  const toggleAnalysisMode = () => {
-    setAnalysisMode(prev => prev === "chat" ? "direct" : "chat");
+  const toggleAnalysisMode = (mode: "chat" | "direct" | "agent-selection") => {
+    setAnalysisMode(mode);
   };
 
   return (
@@ -326,15 +338,31 @@ Team composition analysis complete. Here's the recommended lineup:`;
         </div>
         <div className="flex items-center gap-2">
           <Button 
-            variant="outline" 
+            variant={analysisMode === "chat" ? "default" : "outline"} 
             size="sm"
             className="gap-1" 
-            onClick={toggleAnalysisMode}
+            onClick={() => toggleAnalysisMode("chat")}
           >
-            {analysisMode === "chat" ? <PieChart className="h-4 w-4" /> : <Search className="h-4 w-4" />}
-            <span className="hidden sm:inline-block">
-              {analysisMode === "chat" ? "Direct Analysis" : "Chat"}
-            </span>
+            <Search className="h-4 w-4" />
+            <span className="hidden sm:inline-block">AI Chat</span>
+          </Button>
+          <Button 
+            variant={analysisMode === "direct" ? "default" : "outline"} 
+            size="sm"
+            className="gap-1" 
+            onClick={() => toggleAnalysisMode("direct")}
+          >
+            <PieChart className="h-4 w-4" />
+            <span className="hidden sm:inline-block">Team Analysis</span>
+          </Button>
+          <Button 
+            variant={analysisMode === "agent-selection" ? "default" : "outline"} 
+            size="sm"
+            className="gap-1" 
+            onClick={() => toggleAnalysisMode("agent-selection")}
+          >
+            <ListFilter className="h-4 w-4" />
+            <span className="hidden sm:inline-block">Agent Advisor</span>
           </Button>
           {isAuthenticated && (
             <Button variant="outline" size="icon" className="rounded-full" onClick={handleLogout}>
@@ -404,41 +432,90 @@ Team composition analysis complete. Here's the recommended lineup:`;
               </motion.div>
             )}
 
-            {analysisMode === "chat" && promptHistory.length > 0 && (
-              <div className="space-y-8 mb-4">
-                {promptHistory.map((item) => (
+            {analysisMode === "agent-selection" && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-6"
+              >
+                <AgentSelectionAdvisor />
+              </motion.div>
+            )}
+
+            {analysisMode === "chat" && (
+              <>
+                {promptHistory.length > 0 && (
+                  <div className="space-y-8 mb-4">
+                    {promptHistory.map((item) => (
+                      <motion.div
+                        key={item.id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="space-y-6"
+                      >
+                        <div className="flex items-start gap-4">
+                          <div className="bg-muted rounded-full p-2 flex-shrink-0">
+                            <Users className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <p className="mb-1">{item.text}</p>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(item.timestamp).toLocaleTimeString()}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-start gap-4">
+                          <div className="bg-primary/10 rounded-full p-2 flex-shrink-0">
+                            <Search className="h-5 w-5 text-primary" />
+                          </div>
+                          <div>
+                            <p className="mb-1 whitespace-pre-line">{item.response}</p>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(item.timestamp).toLocaleTimeString()}
+                            </span>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+                
+                {promptHistory.length === 0 && (
                   <motion.div
-                    key={item.id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="space-y-6"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-center py-12"
                   >
-                    <div className="flex items-start gap-4">
-                      <div className="bg-muted rounded-full p-2 flex-shrink-0">
-                        <Users className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <p className="mb-1">{item.text}</p>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(item.timestamp).toLocaleTimeString()}
-                        </span>
-                      </div>
+                    <div className="mx-auto bg-primary/10 rounded-full p-6 w-24 h-24 flex items-center justify-center mb-6">
+                      <Search className="h-12 w-12 text-primary" />
                     </div>
-                    
-                    <div className="flex items-start gap-4">
-                      <div className="bg-primary/10 rounded-full p-2 flex-shrink-0">
-                        <Search className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="mb-1 whitespace-pre-line">{item.response}</p>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(item.timestamp).toLocaleTimeString()}
-                        </span>
-                      </div>
+                    <h2 className="text-2xl font-bold mb-2">SCOUTANT AI Assistant</h2>
+                    <p className="text-muted-foreground mb-8 max-w-md mx-auto">
+                      Your AI-powered Valorant analyst. Ask about player stats, team compositions, agent recommendations, and more.
+                    </p>
+                    <div className="grid gap-4 max-w-md mx-auto">
+                      {[
+                        "Who are the best Jett players right now?",
+                        "Recommend agents for Haven map",
+                        "Compare TenZ and yay stats",
+                        "What's the best team composition for Split?"
+                      ].map((suggestion, index) => (
+                        <Button 
+                          key={index} 
+                          variant="outline" 
+                          className="justify-start text-left"
+                          onClick={() => {
+                            setPrompt(suggestion);
+                          }}
+                        >
+                          {suggestion}
+                        </Button>
+                      ))}
                     </div>
                   </motion.div>
-                ))}
-              </div>
+                )}
+              </>
             )}
             
             <div ref={messageEndRef} />
@@ -453,7 +530,7 @@ Team composition analysis complete. Here's the recommended lineup:`;
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Build the team..."
+                  placeholder="Ask about players, teams, agents, or strategies..."
                   className="w-full rounded-full bg-card/70 border border-border py-3 pl-12 pr-20 focus:outline-none focus:border-primary transition-all"
                 />
                 <div className="absolute right-2 flex gap-2">
