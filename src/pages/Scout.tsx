@@ -371,9 +371,7 @@ Strategy Notes: ${apiResponse.data.strategyNotes}`;
     if (mode === "direct") {
       setShowTeamTab(true);
     } else {
-      if (mode !== "direct") {
-        setShowTeamTab(false);
-      }
+      setShowTeamTab(false);
     }
   };
 
@@ -728,3 +726,4 @@ Strategy Notes: ${apiResponse.data.strategyNotes}`;
 };
 
 export default Scout;
+
