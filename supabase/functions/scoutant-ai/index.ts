@@ -29,6 +29,8 @@ serve(async (req) => {
         return handleScoutChat(data, OPENAI_API_KEY);
       case 'agent_selection':
         return handleAgentSelection(data, OPENAI_API_KEY);
+      case 'classify_prompt':
+        return handlePromptClassification(data, OPENAI_API_KEY);
       default:
         throw new Error(`Unknown action: ${action}`);
     }
@@ -156,7 +158,8 @@ async function handleScoutChat(data, apiKey) {
       IMPORTANT RULES:
       1. If the user asks about player names, team composition, or lineup analysis, respond that you'll analyze the players but DO NOT generate any specific analysis in this message.
       2. If the user's message doesn't make sense or isn't related to Valorant, politely explain that you can only answer Valorant-related questions.
-      3. Be helpful and informative but DO NOT hallucinate or make up statistics.`
+      3. Be helpful and informative but DO NOT hallucinate or make up statistics.
+      4. DO NOT suggest a team composition unless explicitly asked.`
     },
     ...chatHistory.map(msg => ({
       role: msg.role,
@@ -187,16 +190,17 @@ async function handleScoutChat(data, apiKey) {
     
     const result = await response.json();
     
-    // Attempt to detect if this is a team formation request
-    const promptLower = prompt.toLowerCase();
-    const isTeamRequest = isTeamFormationRequest(promptLower);
+    // Use a separate prompt classification to determine the intent
+    const promptType = await classifyPromptType(prompt, apiKey);
     
     return new Response(
       JSON.stringify({ 
         success: true, 
         content: result.choices[0].message.content,
         type: "text_response",
-        isTeamRequest: isTeamRequest
+        isTeamRequest: promptType.isTeamFormationRequest,
+        isAgentSelectionRequest: promptType.isAgentSelectionRequest,
+        isMapRequest: promptType.isMapRequest
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -206,15 +210,99 @@ async function handleScoutChat(data, apiKey) {
   }
 }
 
-// Function to determine if a prompt is asking for team formation
-function isTeamFormationRequest(prompt) {
-  const teamKeywords = [
-    'team', 'composition', 'lineup', 'form a team', 'build a team',
-    'make a team', 'create a team', 'assemble a team', 'recommend players',
-    'best players', 'optimal team', 'perfect team', 'ideal team'
-  ];
+// New function to handle prompt classification
+async function handlePromptClassification(data, apiKey) {
+  const { prompt } = data;
   
-  return teamKeywords.some(keyword => prompt.includes(keyword));
+  if (!prompt) {
+    throw new Error('No prompt provided');
+  }
+  
+  try {
+    const promptType = await classifyPromptType(prompt, apiKey);
+    return new Response(
+      JSON.stringify(promptType),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    console.error('Error in handlePromptClassification:', error);
+    throw error;
+  }
+}
+
+// Function to classify prompt types using OpenAI
+async function classifyPromptType(prompt, apiKey) {
+  const classificationPrompt = `
+    Analyze the following user query and classify its intent.
+    Query: "${prompt}"
+    
+    Classify this query into one of the following categories:
+    1. Team Formation Request - if the user is asking for team composition, lineup suggestions, or player role recommendations
+    2. Agent Selection Request - if the user is asking about which agents to pick for specific maps or scenarios
+    3. Map-specific Request - if the user is asking about map strategies, layouts, or tips
+    4. General Question - if the user is asking a general Valorant question that doesn't fit the above
+    5. Invalid/Non-Valorant - if the query is unrelated to Valorant or doesn't make sense
+    
+    Return your answer in JSON format:
+    {
+      "isTeamFormationRequest": true/false,
+      "isAgentSelectionRequest": true/false,
+      "isMapRequest": true/false,
+      "isGeneralQuestion": true/false,
+      "isInvalid": true/false,
+      "confidence": 0.0-1.0
+    }
+  `;
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: 'You are an expert at understanding and classifying user queries about Valorant.' },
+          { role: 'user', content: classificationPrompt }
+        ],
+        temperature: 0.1,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    try {
+      const classification = JSON.parse(result.choices[0].message.content);
+      return classification;
+    } catch (e) {
+      console.error('Error parsing classification response:', e);
+      // Default to safe values if parsing fails
+      return {
+        isTeamFormationRequest: false,
+        isAgentSelectionRequest: false,
+        isMapRequest: false,
+        isGeneralQuestion: true,
+        isInvalid: false,
+        confidence: 0.5
+      };
+    }
+  } catch (error) {
+    console.error('Error classifying prompt:', error);
+    // Default to safe values if API call fails
+    return {
+      isTeamFormationRequest: false,
+      isAgentSelectionRequest: false,
+      isMapRequest: false,
+      isGeneralQuestion: true,
+      isInvalid: false,
+      confidence: 0.5
+    };
+  }
 }
 
 // Handle agent selection with OpenAI

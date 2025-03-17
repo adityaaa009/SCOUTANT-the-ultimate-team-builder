@@ -26,7 +26,6 @@ import { fetchScoutantResponse } from "@/lib/api";
 import PlayerSearchForm from "@/components/PlayerSearchForm";
 import EnhancedTeamDisplay from "@/components/EnhancedTeamDisplay";
 import AgentSelectionAdvisor from "@/components/AgentSelectionAdvisor";
-import { useEffect as useEffectOnce } from "react";
 
 interface Prompt {
   id: string;
@@ -99,23 +98,28 @@ const Scout = () => {
   }, []);
 
   useEffect(() => {
-    const currentSessionId = localStorage.getItem("scoutant-session-id");
-    const newSessionId = Date.now().toString();
-    
-    if (!currentSessionId) {
+    const handleSessionReset = () => {
+      const newSessionId = Date.now().toString();
       localStorage.setItem("scoutant-session-id", newSessionId);
+      localStorage.setItem("scoutant-last-auth-event", Date.now().toString());
       setPromptHistory([]);
       localStorage.removeItem("scoutant-prompt-history");
+      setPlayerCards([]);
+      setMapCards([]);
+      setTeamRecommendation(null);
+      setShowTeamTab(false);
+      setActiveTab("chat");
+    };
+
+    if (!localStorage.getItem("scoutant-session-id")) {
+      handleSessionReset();
     } else if (auth.isAuthenticated()) {
-      const lastAuthEvent = localStorage.getItem("scoutant-last-auth-event");
-      const currentTime = Date.now();
-      const AUTH_EVENT_THRESHOLD = 10 * 60 * 1000;
+      const lastAuthStatus = localStorage.getItem("scoutant-auth-status");
+      const currentAuthStatus = "authenticated";
       
-      if (!lastAuthEvent || (currentTime - parseInt(lastAuthEvent)) > AUTH_EVENT_THRESHOLD) {
-        localStorage.setItem("scoutant-session-id", newSessionId);
-        localStorage.setItem("scoutant-last-auth-event", currentTime.toString());
-        setPromptHistory([]);
-        localStorage.removeItem("scoutant-prompt-history");
+      if (lastAuthStatus !== currentAuthStatus) {
+        localStorage.setItem("scoutant-auth-status", currentAuthStatus);
+        handleSessionReset();
       } else {
         const savedHistory = localStorage.getItem("scoutant-prompt-history");
         if (savedHistory) {
@@ -123,6 +127,7 @@ const Scout = () => {
         }
       }
     } else {
+      localStorage.setItem("scoutant-auth-status", "unauthenticated");
       const savedHistory = localStorage.getItem("scoutant-prompt-history");
       if (savedHistory) {
         setPromptHistory(JSON.parse(savedHistory));
@@ -146,22 +151,6 @@ const Scout = () => {
     messageEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [promptHistory]);
 
-  useEffect(() => {
-    if (mapCards.length > 0) {
-      mapCards.forEach(map => {
-        const img = new Image();
-        img.src = map.imageUrl;
-        img.onload = () => {
-          console.log(`Map image loaded: ${map.name}`);
-        };
-        img.onerror = () => {
-          console.error(`Failed to load map image: ${map.name}`);
-          toast.error(`Failed to load map image: ${map.name}`);
-        };
-      });
-    }
-  }, [mapCards]);
-
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && prompt.trim()) {
       handlePromptSubmit();
@@ -184,7 +173,6 @@ const Scout = () => {
       { name: "CHAMBER", imageUrl: "https://media.valorant-api.com/agents/22697a3d-45bf-8dd7-4fec-84a9e28c69d7/displayicon.png" },
       { name: "SAGE", imageUrl: "https://media.valorant-api.com/agents/569fdd95-4d10-43ab-ca70-79becc718b46/displayicon.png" }
     ];
-    const roles = ["Duelist", "Controller", "Sentinel", "Initiator"];
     
     return Array.from({ length: 5 }, () => {
       const randomAgent = agents[Math.floor(Math.random() * agents.length)];
@@ -259,7 +247,6 @@ const Scout = () => {
       };
       
       setPromptHistory(prev => [...prev, newPrompt]);
-      
       setPrompt("");
       
       const apiResponse = await fetchScoutantResponse(prompt);
@@ -274,7 +261,7 @@ const Scout = () => {
       if (apiResponse.type === "team_composition" && apiResponse.data && apiResponse.data.success) {
         responseText = `Based on analysis of ${apiResponse.playerNames.join(', ')}, I've identified optimal roles and agents for each player.
 
-Team composition analysis complete. Here's the recommended lineup:`;
+Team composition analysis complete. Here's the recommended lineup. Check the Team Analysis tab to see more details.`;
         
         setTeamRecommendation(apiResponse.data);
         shouldShowTeamTab = true;
@@ -296,18 +283,22 @@ Strategy Notes: ${apiResponse.data.strategyNotes}`;
       } else if (apiResponse.type === "text_response") {
         responseText = apiResponse.data;
         
-        if (apiResponse.isTeamRequest) {
+        if (apiResponse.isTeamRequest === true) {
           shouldShowTeamTab = true;
           
           const newPlayerCards = generateRandomPlayerData();
           const newMapCards = generateRandomMapData();
           setPlayerCards(newPlayerCards);
           setMapCards(newMapCards);
+        } else {
+          shouldShowTeamTab = false;
         }
       } else if (apiResponse.type === "error") {
         responseText = `Error: ${apiResponse.data}`;
+        shouldShowTeamTab = false;
       } else {
         responseText = "I couldn't process that request. Please try again with a different query.";
+        shouldShowTeamTab = false;
       }
       
       setTimeout(() => {
@@ -322,7 +313,7 @@ Strategy Notes: ${apiResponse.data.strategyNotes}`;
         setResponse(responseText);
         setShowTeamTab(shouldShowTeamTab);
         
-        if (shouldShowTeamTab) {
+        if (shouldShowTeamTab && apiResponse.type === "team_composition") {
           setActiveTab("team");
         }
         
@@ -350,6 +341,7 @@ Strategy Notes: ${apiResponse.data.strategyNotes}`;
     setPromptHistory([]);
     localStorage.removeItem("scoutant-prompt-history");
     localStorage.removeItem("scoutant-session-id");
+    localStorage.setItem("scoutant-auth-status", "unauthenticated");
     
     setPromptCount(0);
     localStorage.removeItem("scoutant-prompt-count");
@@ -358,6 +350,7 @@ Strategy Notes: ${apiResponse.data.strategyNotes}`;
     setMapCards([]);
     setPlayerData([]);
     setTeamRecommendation(null);
+    setShowTeamTab(false);
     
     toast.success("Logged out successfully");
     navigate('/signin');
@@ -375,6 +368,13 @@ Strategy Notes: ${apiResponse.data.strategyNotes}`;
 
   const toggleAnalysisMode = (mode: "chat" | "direct" | "agent-selection") => {
     setAnalysisMode(mode);
+    if (mode === "direct") {
+      setShowTeamTab(true);
+    } else {
+      if (mode !== "direct") {
+        setShowTeamTab(false);
+      }
+    }
   };
 
   return (
@@ -636,82 +636,82 @@ Strategy Notes: ${apiResponse.data.strategyNotes}`;
                           {playerCards.length === 0 && (
                             <div className="text-center py-8 text-muted-foreground">
                               <Target className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                              <p>Submit a prompt to see team formation</p>
+                              <p>Submit a team formation request to see recommendations</p>
                             </div>
                           )}
-                          {playerCards.map((player, index) => (
-                            <Card key={index} className="overflow-hidden border-border">
-                              <div className="flex">
-                                <div className="w-1/3 bg-card relative">
-                                  <img 
-                                    src={player.agentImageUrl} 
-                                    alt={player.agent} 
-                                    className="w-full h-full object-cover"
-                                  />
-                                  <div className="absolute top-2 left-2 bg-black/50 px-2 py-1 text-xs">
-                                    {player.agent}
-                                  </div>
-                                  <div className="absolute bottom-2 left-2 bg-black/50 px-2 py-1 text-xs">
-                                    {player.name}
-                                  </div>
-                                </div>
-                                <div className="w-2/3 p-3">
-                                  <div className="grid grid-cols-1 gap-1">
-                                    <div className="flex justify-between items-center">
-                                      <span className="text-xs">KILLS / ROUND</span>
-                                      <span className="text-xs font-bold text-red-500">{player.kpr}</span>
+                          {playerCards.length > 0 && (
+                            <>
+                              {playerCards.map((player, index) => (
+                                <Card key={index} className="overflow-hidden border-border">
+                                  <div className="flex">
+                                    <div className="w-1/3 bg-card relative">
+                                      <img 
+                                        src={player.agentImageUrl} 
+                                        alt={player.agent} 
+                                        className="w-full h-full object-cover"
+                                      />
+                                      <div className="absolute top-2 left-2 bg-black/50 px-2 py-1 text-xs">
+                                        {player.agent}
+                                      </div>
+                                      <div className="absolute bottom-2 left-2 bg-black/50 px-2 py-1 text-xs">
+                                        {player.name}
+                                      </div>
                                     </div>
-                                    <div className="flex justify-between items-center">
-                                      <span className="text-xs">DEATHS / ROUND</span>
-                                      <span className="text-xs font-bold text-red-500">{player.dpr}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                      <span className="text-xs">GAMES</span>
-                                      <span className="text-xs font-bold text-red-500">{player.games}</span>
+                                    <div className="w-2/3 p-3">
+                                      <div className="grid grid-cols-1 gap-1">
+                                        <div className="flex justify-between items-center">
+                                          <span className="text-xs">KILLS / ROUND</span>
+                                          <span className="text-xs font-bold text-red-500">{player.kpr}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                          <span className="text-xs">DEATHS / ROUND</span>
+                                          <span className="text-xs font-bold text-red-500">{player.dpr}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                          <span className="text-xs">GAMES</span>
+                                          <span className="text-xs font-bold text-red-500">{player.games}</span>
+                                        </div>
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
-                              </div>
-                            </Card>
-                          ))}
+                                </Card>
+                              ))}
+                            </>
+                          )}
                         </>
                       )}
                     </div>
                   </div>
 
-                  <div>
-                    <div className="bg-red-500 text-white font-bold px-4 py-2 mb-4 inline-block">
-                      TOP MAPS
+                  {mapCards.length > 0 && (
+                    <div>
+                      <div className="bg-red-500 text-white font-bold px-4 py-2 mb-4 inline-block">
+                        TOP MAPS
+                      </div>
+                      <div className="grid grid-cols-1 gap-4">
+                        {mapCards.map((map, index) => (
+                          <Card key={index} className="relative overflow-hidden h-32">
+                            <img 
+                              src={map.imageUrl} 
+                              alt={map.name}
+                              className="absolute inset-0 w-full h-full object-cover"
+                              loading="eager"
+                              onError={(e) => {
+                                e.currentTarget.src = "/placeholder.svg";
+                                toast.error(`Failed to load map image: ${map.name}`);
+                              }}
+                            />
+                            <div className="absolute inset-0 bg-black/50 flex justify-center items-center">
+                              <span className="text-xl font-bold text-white">{map.name}</span>
+                            </div>
+                            <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 text-sm font-bold">
+                              {map.rank}
+                            </div>
+                          </Card>
+                        ))}
+                      </div>
                     </div>
-                    <div className="grid grid-cols-1 gap-4">
-                      {mapCards.length === 0 && (
-                        <div className="text-center py-8 text-muted-foreground">
-                          <Gamepad className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                          <p>Submit a prompt to see top maps</p>
-                        </div>
-                      )}
-                      {mapCards.map((map, index) => (
-                        <Card key={index} className="relative overflow-hidden h-32">
-                          <img 
-                            src={map.imageUrl} 
-                            alt={map.name}
-                            className="absolute inset-0 w-full h-full object-cover"
-                            loading="eager"
-                            onError={(e) => {
-                              e.currentTarget.src = "/placeholder.svg";
-                              toast.error(`Failed to load map image: ${map.name}`);
-                            }}
-                          />
-                          <div className="absolute inset-0 bg-black/50 flex justify-center items-center">
-                            <span className="text-xl font-bold text-white">{map.name}</span>
-                          </div>
-                          <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 text-sm font-bold">
-                            {map.rank}
-                          </div>
-                        </Card>
-                      ))}
-                    </div>
-                  </div>
+                  )}
                 </TabsContent>
               </Tabs>
             ) : (
