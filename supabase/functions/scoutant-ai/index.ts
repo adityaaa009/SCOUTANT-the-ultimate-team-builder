@@ -88,47 +88,52 @@ async function handlePlayerAnalysis(data, apiKey) {
     }
   `;
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: 'You are an expert Valorant analyst and coach who specializes in player analysis and team composition.' },
-        { role: 'user', content: prompt }
-      ],
-      temperature: 0.2,
-    }),
-  });
-
-  const result = await response.json();
-  
-  if (!response.ok) {
-    throw new Error(`OpenAI API error: ${result.error?.message || 'Unknown error'}`);
-  }
-  
-  let analysisResult;
-  
   try {
-    analysisResult = JSON.parse(result.choices[0].message.content);
-  } catch (e) {
-    // If parsing fails, return the raw text
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        rawAnalysis: result.choices[0].message.content 
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: 'You are an expert Valorant analyst and coach who specializes in player analysis and team composition.' },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.2,
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('OpenAI API error:', errorData);
+      throw new Error(`OpenAI API error: ${errorData.error?.message || 'Unknown error'}`);
+    }
+    
+    const result = await response.json();
+    
+    try {
+      const analysisResult = JSON.parse(result.choices[0].message.content);
+      return new Response(
+        JSON.stringify(analysisResult),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } catch (e) {
+      console.error('Error parsing OpenAI response:', e);
+      // If parsing fails, return the raw text
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          rawAnalysis: result.choices[0].message.content 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+  } catch (error) {
+    console.error('Error in handlePlayerAnalysis:', error);
+    throw error;
   }
-  
-  return new Response(
-    JSON.stringify(analysisResult),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
 }
 
 // Handle scout chat with OpenAI
@@ -146,7 +151,12 @@ async function handleScoutChat(data, apiKey) {
       Answer questions concisely and accurately, focusing on providing strategic insights and data-driven recommendations.
       When discussing player performance, consider ACS, KD ratio, ADR, KAST, and other relevant metrics.
       When discussing team composition, focus on synergy between agents, map-specific strategies, and role balance.
-      Base your responses on current meta and professional play patterns.`
+      Base your responses on current meta and professional play patterns.
+      
+      IMPORTANT RULES:
+      1. If the user asks about player names, team composition, or lineup analysis, respond that you'll analyze the players but DO NOT generate any specific analysis in this message.
+      2. If the user's message doesn't make sense or isn't related to Valorant, politely explain that you can only answer Valorant-related questions.
+      3. Be helpful and informative but DO NOT hallucinate or make up statistics.`
     },
     ...chatHistory.map(msg => ({
       role: msg.role,
@@ -155,33 +165,56 @@ async function handleScoutChat(data, apiKey) {
     { role: 'user', content: prompt }
   ];
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages,
-      temperature: 0.7,
-    }),
-  });
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages,
+        temperature: 0.7,
+      }),
+    });
 
-  const result = await response.json();
-  
-  if (!response.ok) {
-    throw new Error(`OpenAI API error: ${result.error?.message || 'Unknown error'}`);
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('OpenAI API error:', errorData);
+      throw new Error(`OpenAI API error: ${errorData.error?.message || 'Unknown error'}`);
+    }
+    
+    const result = await response.json();
+    
+    // Attempt to detect if this is a team formation request
+    const promptLower = prompt.toLowerCase();
+    const isTeamRequest = isTeamFormationRequest(promptLower);
+    
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        content: result.choices[0].message.content,
+        type: "text_response",
+        isTeamRequest: isTeamRequest
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    console.error('Error in handleScoutChat:', error);
+    throw error;
   }
+}
+
+// Function to determine if a prompt is asking for team formation
+function isTeamFormationRequest(prompt) {
+  const teamKeywords = [
+    'team', 'composition', 'lineup', 'form a team', 'build a team',
+    'make a team', 'create a team', 'assemble a team', 'recommend players',
+    'best players', 'optimal team', 'perfect team', 'ideal team'
+  ];
   
-  return new Response(
-    JSON.stringify({ 
-      success: true, 
-      content: result.choices[0].message.content,
-      type: "text_response"
-    }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
+  return teamKeywords.some(keyword => prompt.includes(keyword));
 }
 
 // Handle agent selection with OpenAI
@@ -219,45 +252,50 @@ async function handleAgentSelection(data, apiKey) {
     }
   `;
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: 'You are an expert Valorant analyst specializing in map strategies and agent selection.' },
-        { role: 'user', content: prompt }
-      ],
-      temperature: 0.3,
-    }),
-  });
-
-  const result = await response.json();
-  
-  if (!response.ok) {
-    throw new Error(`OpenAI API error: ${result.error?.message || 'Unknown error'}`);
-  }
-  
-  let agentResult;
-  
   try {
-    agentResult = JSON.parse(result.choices[0].message.content);
-  } catch (e) {
-    // If parsing fails, return the raw text
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        rawAnalysis: result.choices[0].message.content 
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: 'You are an expert Valorant analyst specializing in map strategies and agent selection.' },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.3,
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('OpenAI API error:', errorData);
+      throw new Error(`OpenAI API error: ${errorData.error?.message || 'Unknown error'}`);
+    }
+    
+    const result = await response.json();
+    
+    try {
+      const agentResult = JSON.parse(result.choices[0].message.content);
+      return new Response(
+        JSON.stringify(agentResult),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } catch (e) {
+      console.error('Error parsing OpenAI response:', e);
+      // If parsing fails, return the raw text
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          rawAnalysis: result.choices[0].message.content 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+  } catch (error) {
+    console.error('Error in handleAgentSelection:', error);
+    throw error;
   }
-  
-  return new Response(
-    JSON.stringify(agentResult),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
 }

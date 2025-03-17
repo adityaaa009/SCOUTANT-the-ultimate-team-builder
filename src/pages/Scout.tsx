@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Users, 
   Search, 
@@ -11,7 +12,8 @@ import {
   BarChart,
   LogOut,
   PieChart,
-  ListFilter
+  ListFilter,
+  MessageSquare
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -24,6 +26,7 @@ import { fetchScoutantResponse } from "@/lib/api";
 import PlayerSearchForm from "@/components/PlayerSearchForm";
 import EnhancedTeamDisplay from "@/components/EnhancedTeamDisplay";
 import AgentSelectionAdvisor from "@/components/AgentSelectionAdvisor";
+import { useEffect as useEffectOnce } from "react";
 
 interface Prompt {
   id: string;
@@ -78,13 +81,12 @@ const Scout = () => {
   const [mapCards, setMapCards] = useState<MapCard[]>([]);
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [promptHistory, setPromptHistory] = useState<Prompt[]>(() => {
-    const savedHistory = localStorage.getItem("scoutant-prompt-history");
-    return savedHistory ? JSON.parse(savedHistory) : [];
-  });
+  const [promptHistory, setPromptHistory] = useState<Prompt[]>([]);
   const [playerData, setPlayerData] = useState<any[]>([]);
   const [teamRecommendation, setTeamRecommendation] = useState<TeamRecommendation | null>(null);
   const [analysisMode, setAnalysisMode] = useState<"chat" | "direct" | "agent-selection">("chat");
+  const [showTeamTab, setShowTeamTab] = useState(false);
+  const [activeTab, setActiveTab] = useState<"chat" | "team">("chat");
   
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -94,6 +96,38 @@ const Scout = () => {
 
   useEffect(() => {
     setIsAuthenticated(auth.isAuthenticated());
+  }, []);
+
+  useEffect(() => {
+    const currentSessionId = localStorage.getItem("scoutant-session-id");
+    const newSessionId = Date.now().toString();
+    
+    if (!currentSessionId) {
+      localStorage.setItem("scoutant-session-id", newSessionId);
+      setPromptHistory([]);
+      localStorage.removeItem("scoutant-prompt-history");
+    } else if (auth.isAuthenticated()) {
+      const lastAuthEvent = localStorage.getItem("scoutant-last-auth-event");
+      const currentTime = Date.now();
+      const AUTH_EVENT_THRESHOLD = 10 * 60 * 1000;
+      
+      if (!lastAuthEvent || (currentTime - parseInt(lastAuthEvent)) > AUTH_EVENT_THRESHOLD) {
+        localStorage.setItem("scoutant-session-id", newSessionId);
+        localStorage.setItem("scoutant-last-auth-event", currentTime.toString());
+        setPromptHistory([]);
+        localStorage.removeItem("scoutant-prompt-history");
+      } else {
+        const savedHistory = localStorage.getItem("scoutant-prompt-history");
+        if (savedHistory) {
+          setPromptHistory(JSON.parse(savedHistory));
+        }
+      }
+    } else {
+      const savedHistory = localStorage.getItem("scoutant-prompt-history");
+      if (savedHistory) {
+        setPromptHistory(JSON.parse(savedHistory));
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -235,6 +269,7 @@ const Scout = () => {
       }
       
       let responseText = "";
+      let shouldShowTeamTab = false;
       
       if (apiResponse.type === "team_composition" && apiResponse.data && apiResponse.data.success) {
         responseText = `Based on analysis of ${apiResponse.playerNames.join(', ')}, I've identified optimal roles and agents for each player.
@@ -242,6 +277,12 @@ const Scout = () => {
 Team composition analysis complete. Here's the recommended lineup:`;
         
         setTeamRecommendation(apiResponse.data);
+        shouldShowTeamTab = true;
+        
+        const newPlayerCards = generateRandomPlayerData();
+        const newMapCards = generateRandomMapData();
+        setPlayerCards(newPlayerCards);
+        setMapCards(newMapCards);
       } else if (apiResponse.type === "agent_selection" && apiResponse.data && apiResponse.data.success) {
         responseText = `Based on your query about agents for ${apiResponse.mapName}, I've analyzed the current meta and map strategies.
 
@@ -254,6 +295,15 @@ ${apiResponse.data.recommendations.map((rec: any) =>
 Strategy Notes: ${apiResponse.data.strategyNotes}`;
       } else if (apiResponse.type === "text_response") {
         responseText = apiResponse.data;
+        
+        if (apiResponse.isTeamRequest) {
+          shouldShowTeamTab = true;
+          
+          const newPlayerCards = generateRandomPlayerData();
+          const newMapCards = generateRandomMapData();
+          setPlayerCards(newPlayerCards);
+          setMapCards(newMapCards);
+        }
       } else if (apiResponse.type === "error") {
         responseText = `Error: ${apiResponse.data}`;
       } else {
@@ -270,12 +320,11 @@ Strategy Notes: ${apiResponse.data.strategyNotes}`;
         );
         
         setResponse(responseText);
+        setShowTeamTab(shouldShowTeamTab);
         
-        const newPlayerCards = generateRandomPlayerData();
-        const newMapCards = generateRandomMapData();
-        
-        setPlayerCards(newPlayerCards);
-        setMapCards(newMapCards);
+        if (shouldShowTeamTab) {
+          setActiveTab("team");
+        }
         
         setIsLoading(false);
       }, 1500);
@@ -300,6 +349,7 @@ Strategy Notes: ${apiResponse.data.strategyNotes}`;
     
     setPromptHistory([]);
     localStorage.removeItem("scoutant-prompt-history");
+    localStorage.removeItem("scoutant-session-id");
     
     setPromptCount(0);
     localStorage.removeItem("scoutant-prompt-count");
@@ -319,6 +369,8 @@ Strategy Notes: ${apiResponse.data.strategyNotes}`;
 
   const handleTeamRecommendation = (recommendation: TeamRecommendation) => {
     setTeamRecommendation(recommendation);
+    setShowTeamTab(true);
+    setActiveTab("team");
   };
 
   const toggleAnalysisMode = (mode: "chat" | "direct" | "agent-selection") => {
@@ -552,95 +604,122 @@ Strategy Notes: ${apiResponse.data.strategyNotes}`;
         </div>
 
         {!isMobile && (
-          <div className="w-96 border-l border-border overflow-y-auto p-4 flex flex-col gap-6">
-            <div>
-              <div className="bg-red-500 text-white font-bold px-4 py-2 mb-4 inline-block">
-                TEAM FORMATION
-              </div>
-              <div className="space-y-4">
-                {analysisMode === "direct" ? (
-                  <EnhancedTeamDisplay recommendation={teamRecommendation} />
-                ) : (
-                  <>
-                    {playerCards.length === 0 && (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <Target className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                        <p>Submit a prompt to see team formation</p>
-                      </div>
-                    )}
-                    {playerCards.map((player, index) => (
-                      <Card key={index} className="overflow-hidden border-border">
-                        <div className="flex">
-                          <div className="w-1/3 bg-card relative">
-                            <img 
-                              src={player.agentImageUrl} 
-                              alt={player.agent} 
-                              className="w-full h-full object-cover"
-                            />
-                            <div className="absolute top-2 left-2 bg-black/50 px-2 py-1 text-xs">
-                              {player.agent}
-                            </div>
-                            <div className="absolute bottom-2 left-2 bg-black/50 px-2 py-1 text-xs">
-                              {player.name}
-                            </div>
-                          </div>
-                          <div className="w-2/3 p-3">
-                            <div className="grid grid-cols-1 gap-1">
-                              <div className="flex justify-between items-center">
-                                <span className="text-xs">KILLS / ROUND</span>
-                                <span className="text-xs font-bold text-red-500">{player.kpr}</span>
-                              </div>
-                              <div className="flex justify-between items-center">
-                                <span className="text-xs">DEATHS / ROUND</span>
-                                <span className="text-xs font-bold text-red-500">{player.dpr}</span>
-                              </div>
-                              <div className="flex justify-between items-center">
-                                <span className="text-xs">GAMES</span>
-                                <span className="text-xs font-bold text-red-500">{player.games}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
-                  </>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <div className="bg-red-500 text-white font-bold px-4 py-2 mb-4 inline-block">
-                TOP MAPS
-              </div>
-              <div className="grid grid-cols-1 gap-4">
-                {mapCards.length === 0 && (
+          <div className="w-96 border-l border-border overflow-y-auto p-4 flex flex-col">
+            {(showTeamTab || analysisMode === "direct") ? (
+              <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "chat" | "team")} className="w-full">
+                <TabsList className="grid w-full grid-cols-2 mb-4">
+                  <TabsTrigger value="chat" className="flex items-center gap-1">
+                    <MessageSquare className="h-4 w-4" />
+                    <span>Chat</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="team" className="flex items-center gap-1">
+                    <Users className="h-4 w-4" />
+                    <span>Team Analysis</span>
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="chat" className="space-y-4">
                   <div className="text-center py-8 text-muted-foreground">
-                    <Gamepad className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                    <p>Submit a prompt to see top maps</p>
+                    <MessageSquare className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                    <p>Use the chat to interact with SCOUTANT AI</p>
                   </div>
-                )}
-                {mapCards.map((map, index) => (
-                  <Card key={index} className="relative overflow-hidden h-32">
-                    <img 
-                      src={map.imageUrl} 
-                      alt={map.name}
-                      className="absolute inset-0 w-full h-full object-cover"
-                      loading="eager"
-                      onError={(e) => {
-                        e.currentTarget.src = "/placeholder.svg";
-                        toast.error(`Failed to load map image: ${map.name}`);
-                      }}
-                    />
-                    <div className="absolute inset-0 bg-black/50 flex justify-center items-center">
-                      <span className="text-xl font-bold text-white">{map.name}</span>
+                </TabsContent>
+                <TabsContent value="team" className="space-y-4">
+                  <div>
+                    <div className="bg-red-500 text-white font-bold px-4 py-2 mb-4 inline-block">
+                      TEAM FORMATION
                     </div>
-                    <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 text-sm font-bold">
-                      {map.rank}
+                    <div className="space-y-4">
+                      {analysisMode === "direct" ? (
+                        <EnhancedTeamDisplay recommendation={teamRecommendation} />
+                      ) : (
+                        <>
+                          {playerCards.length === 0 && (
+                            <div className="text-center py-8 text-muted-foreground">
+                              <Target className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                              <p>Submit a prompt to see team formation</p>
+                            </div>
+                          )}
+                          {playerCards.map((player, index) => (
+                            <Card key={index} className="overflow-hidden border-border">
+                              <div className="flex">
+                                <div className="w-1/3 bg-card relative">
+                                  <img 
+                                    src={player.agentImageUrl} 
+                                    alt={player.agent} 
+                                    className="w-full h-full object-cover"
+                                  />
+                                  <div className="absolute top-2 left-2 bg-black/50 px-2 py-1 text-xs">
+                                    {player.agent}
+                                  </div>
+                                  <div className="absolute bottom-2 left-2 bg-black/50 px-2 py-1 text-xs">
+                                    {player.name}
+                                  </div>
+                                </div>
+                                <div className="w-2/3 p-3">
+                                  <div className="grid grid-cols-1 gap-1">
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-xs">KILLS / ROUND</span>
+                                      <span className="text-xs font-bold text-red-500">{player.kpr}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-xs">DEATHS / ROUND</span>
+                                      <span className="text-xs font-bold text-red-500">{player.dpr}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-xs">GAMES</span>
+                                      <span className="text-xs font-bold text-red-500">{player.games}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </Card>
+                          ))}
+                        </>
+                      )}
                     </div>
-                  </Card>
-                ))}
+                  </div>
+
+                  <div>
+                    <div className="bg-red-500 text-white font-bold px-4 py-2 mb-4 inline-block">
+                      TOP MAPS
+                    </div>
+                    <div className="grid grid-cols-1 gap-4">
+                      {mapCards.length === 0 && (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <Gamepad className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                          <p>Submit a prompt to see top maps</p>
+                        </div>
+                      )}
+                      {mapCards.map((map, index) => (
+                        <Card key={index} className="relative overflow-hidden h-32">
+                          <img 
+                            src={map.imageUrl} 
+                            alt={map.name}
+                            className="absolute inset-0 w-full h-full object-cover"
+                            loading="eager"
+                            onError={(e) => {
+                              e.currentTarget.src = "/placeholder.svg";
+                              toast.error(`Failed to load map image: ${map.name}`);
+                            }}
+                          />
+                          <div className="absolute inset-0 bg-black/50 flex justify-center items-center">
+                            <span className="text-xl font-bold text-white">{map.name}</span>
+                          </div>
+                          <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 text-sm font-bold">
+                            {map.rank}
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p>Ask about team compositions or player analysis to see recommendations here</p>
               </div>
-            </div>
+            )}
           </div>
         )}
       </div>

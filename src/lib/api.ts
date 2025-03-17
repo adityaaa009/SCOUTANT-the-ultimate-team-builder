@@ -118,33 +118,42 @@ export async function fetchScoutantResponse(prompt: string): Promise<any> {
  * Extract player names from the prompt
  */
 function extractPlayerNamesFromPrompt(prompt: string): string[] {
-  // Real implementation would use NLP or pattern matching
-  // This is a simple implementation for demonstration
+  // Only extract player names if there's a clear indication we should
   const promptLower = prompt.toLowerCase();
   
-  // Check if prompt contains keywords related to players or teams
-  const playerKeywords = ["player", "team", "lineup", "roster", "professional"];
-  const containsPlayerKeywords = playerKeywords.some(keyword => promptLower.includes(keyword));
-  
-  if (containsPlayerKeywords) {
-    // Example pro players - in a real app, this would be more sophisticated
-    const proPlayers = ["TenZ", "yay", "Asuna", "ShahZaM", "cNed", "ScreaM", "Boaster", "nAts"];
-    
-    // Find potential player names in the prompt
-    const mentionedPlayers = proPlayers.filter(player => 
-      promptLower.includes(player.toLowerCase())
-    );
-    
-    // If specific players mentioned, return them
-    if (mentionedPlayers.length > 0) {
-      return mentionedPlayers;
-    }
-    
-    // Otherwise, return a selection of players for a sample analysis
-    return proPlayers.slice(0, 5);
+  // Check if prompt contains keywords related to team formation
+  if (!isTeamFormationRequest(promptLower)) {
+    return [];
   }
   
-  return [];
+  // Example pro players - in a real app, this would be more sophisticated
+  const proPlayers = ["TenZ", "yay", "Asuna", "ShahZaM", "cNed", "ScreaM", "Boaster", "nAts"];
+  
+  // Find potential player names in the prompt
+  const mentionedPlayers = proPlayers.filter(player => 
+    promptLower.includes(player.toLowerCase())
+  );
+  
+  // If specific players mentioned, return them
+  if (mentionedPlayers.length > 0) {
+    return mentionedPlayers;
+  }
+  
+  // Otherwise, return a selection of players for a sample analysis
+  return proPlayers.slice(0, 5);
+}
+
+/**
+ * Check if prompt is requesting team formation
+ */
+function isTeamFormationRequest(prompt: string): boolean {
+  const teamKeywords = [
+    'team', 'composition', 'lineup', 'form a team', 'build a team',
+    'make a team', 'create a team', 'assemble a team', 'recommend players',
+    'best players', 'optimal team', 'perfect team', 'ideal team'
+  ];
+  
+  return teamKeywords.some(keyword => prompt.includes(keyword));
 }
 
 /**
@@ -171,7 +180,7 @@ function generateTextResponse(prompt: string): any {
     }
   }
   
-  if (!responseType) responseType = "team";
+  if (!responseType) responseType = "general";
   
   const responses = {
     team: `Based on your request about "${prompt}", I've analyzed recent performance data from VCT International to create an optimal team composition.
@@ -198,14 +207,20 @@ Here are my agent recommendations based on your requirements:`,
 
 Analyzing recent competition results and team performances...
 
-Here's what the data reveals about tournament strategies:`
+Here's what the data reveals about tournament strategies:`,
+    general: `I've analyzed your question: "${prompt}" and searched through Valorant data to find you an answer.
+
+Let me provide some insight based on current game knowledge and meta analysis...`
   };
+  
+  const isTeamRequest = isTeamFormationRequest(promptLower);
   
   return {
     success: true,
     type: "text_response",
     data: responses[responseType as keyof typeof responses],
-    prompt: prompt
+    prompt: prompt,
+    isTeamRequest: isTeamRequest
   };
 }
 
