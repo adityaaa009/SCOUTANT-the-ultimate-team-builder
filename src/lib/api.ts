@@ -7,72 +7,55 @@ import { supabase } from "@/integrations/supabase/client";
  */
 export async function fetchScoutantResponse(prompt: string): Promise<any> {
   try {
-    // First, classify the prompt to understand user intent
-    const classificationResponse = await supabase.functions.invoke("scoutant-ai", {
-      body: {
-        action: "classify_prompt",
-        data: { prompt }
-      }
-    });
+    // Parse the prompt to extract player names or analyze prompt intent
+    const playerNames = extractPlayerNamesFromPrompt(prompt);
     
-    if (classificationResponse.error) {
-      throw new Error(classificationResponse.error.message);
-    }
-    
-    const classification = classificationResponse.data;
-    console.log("Prompt classification:", classification);
-
-    // If it's a team formation request, handle accordingly
-    if (classification.isTeamFormationRequest && classification.confidence > 0.6) {
-      const playerNames = extractPlayerNamesFromPrompt(prompt);
+    // If we found player names, get their data and generate team composition
+    if (playerNames.length > 0) {
+      console.log("Detected player names in prompt:", playerNames);
+      const playersData = await fetchMultiplePlayersData(playerNames);
       
-      // If we found player names, get their data and generate team composition
-      if (playerNames.length > 0) {
-        console.log("Detected player names in prompt:", playerNames);
-        const playersData = await fetchMultiplePlayersData(playerNames);
+      // Use OpenAI for enhanced player analysis
+      try {
+        const aiResponse = await supabase.functions.invoke("scoutant-ai", {
+          body: {
+            action: "analyze_players",
+            data: { players: playersData }
+          }
+        });
         
-        // Use OpenAI for enhanced player analysis
-        try {
-          const aiResponse = await supabase.functions.invoke("scoutant-ai", {
-            body: {
-              action: "analyze_players",
-              data: { players: playersData }
-            }
-          });
-          
-          if (aiResponse.error) {
-            throw new Error(aiResponse.error.message);
-          }
-          
-          const data = aiResponse.data;
-          
-          if (data.success) {
-            console.log("AI player analysis:", data);
-            return {
-              success: true,
-              type: "team_composition",
-              data: data,
-              prompt: prompt,
-              playerNames: playerNames
-            };
-          }
-        } catch (aiError) {
-          console.error("Error with AI player analysis, falling back to algorithm:", aiError);
-          // Fall back to algorithmic recommendation if AI fails
-          const recommendation = recommendTeamComposition(playersData);
+        if (aiResponse.error) {
+          throw new Error(aiResponse.error.message);
+        }
+        
+        const data = aiResponse.data;
+        
+        if (data.success) {
+          console.log("AI player analysis:", data);
           return {
             success: true,
             type: "team_composition",
-            data: recommendation,
+            data: data,
             prompt: prompt,
             playerNames: playerNames
           };
         }
+      } catch (aiError) {
+        console.error("Error with AI player analysis, falling back to algorithm:", aiError);
+        // Fall back to algorithmic recommendation if AI fails
+        const recommendation = recommendTeamComposition(playersData);
+        return {
+          success: true,
+          type: "team_composition",
+          data: recommendation,
+          prompt: prompt,
+          playerNames: playerNames
+        };
       }
     }
     
     // If it's an agent selection query, handle it
-    if (classification.isAgentSelectionRequest && classification.confidence > 0.6) {
+    if (isAgentSelectionQuery(prompt)) {
       const mapName = extractMapName(prompt);
       if (mapName) {
         try {
@@ -114,18 +97,11 @@ export async function fetchScoutantResponse(prompt: string): Promise<any> {
         throw new Error(aiResponse.error.message);
       }
       
-      return {
-        success: true,
-        type: "text_response",
-        data: aiResponse.data.content,
-        isTeamRequest: aiResponse.data.isTeamRequest && aiResponse.data.isTeamRequest === true,
-        isAgentSelectionRequest: aiResponse.data.isAgentSelectionRequest && aiResponse.data.isAgentSelectionRequest === true,
-        isMapRequest: aiResponse.data.isMapRequest && aiResponse.data.isMapRequest === true
-      };
+      return aiResponse.data;
     } catch (aiError) {
       console.error("Error with AI chat, falling back to template response:", aiError);
       // Fall back to template response if AI fails
-      return generateTextResponse(prompt, classification);
+      return generateTextResponse(prompt);
     }
   } catch (error) {
     console.error("Error fetching Scoutant response:", error);
@@ -142,43 +118,60 @@ export async function fetchScoutantResponse(prompt: string): Promise<any> {
  * Extract player names from the prompt
  */
 function extractPlayerNamesFromPrompt(prompt: string): string[] {
-  // Example pro players - in a real app, this would be more sophisticated
-  const proPlayers = ["TenZ", "yay", "Asuna", "ShahZaM", "cNed", "ScreaM", "Boaster", "nAts"];
+  // Real implementation would use NLP or pattern matching
+  // This is a simple implementation for demonstration
+  const promptLower = prompt.toLowerCase();
   
-  // Find potential player names in the prompt
-  const mentionedPlayers = proPlayers.filter(player => 
-    prompt.toLowerCase().includes(player.toLowerCase())
-  );
+  // Check if prompt contains keywords related to players or teams
+  const playerKeywords = ["player", "team", "lineup", "roster", "professional"];
+  const containsPlayerKeywords = playerKeywords.some(keyword => promptLower.includes(keyword));
   
-  // If specific players mentioned, return them
-  if (mentionedPlayers.length > 0) {
-    return mentionedPlayers;
+  if (containsPlayerKeywords) {
+    // Example pro players - in a real app, this would be more sophisticated
+    const proPlayers = ["TenZ", "yay", "Asuna", "ShahZaM", "cNed", "ScreaM", "Boaster", "nAts"];
+    
+    // Find potential player names in the prompt
+    const mentionedPlayers = proPlayers.filter(player => 
+      promptLower.includes(player.toLowerCase())
+    );
+    
+    // If specific players mentioned, return them
+    if (mentionedPlayers.length > 0) {
+      return mentionedPlayers;
+    }
+    
+    // Otherwise, return a selection of players for a sample analysis
+    return proPlayers.slice(0, 5);
   }
   
-  // Otherwise, return a selection of players for a sample analysis
-  return proPlayers.slice(0, 5);
+  return [];
 }
 
 /**
  * Generate a text-based response for prompts that don't involve player analysis
  */
-function generateTextResponse(prompt: string, classification: any): any {
+function generateTextResponse(prompt: string): any {
   const promptLower = prompt.toLowerCase();
   
-  // Different response types based on prompt classification
-  let responseType = "general";
+  // Different response types based on prompt keywords
+  const keywords = {
+    team: ["composition", "roster", "lineup", "squad", "players"],
+    strategy: ["tactics", "approach", "plan", "method", "formation"],
+    map: ["map", "maps", "arena", "venue", "location"],
+    agent: ["agent", "character", "hero", "operator"],
+    tournament: ["tournament", "competition", "championship", "event"]
+  };
   
-  if (classification.isTeamFormationRequest) {
-    responseType = "team";
-  } else if (classification.isAgentSelectionRequest) {
-    responseType = "agent";
-  } else if (classification.isMapRequest) {
-    responseType = "map";
-  } else if (promptLower.includes("strategy") || promptLower.includes("tactic")) {
-    responseType = "strategy";
-  } else if (promptLower.includes("tournament") || promptLower.includes("competition")) {
-    responseType = "tournament";
+  let responseType = "";
+  
+  for (const [key, words] of Object.entries(keywords)) {
+    if (words.some(word => promptLower.includes(word))) {
+      responseType = key;
+      break;
+    }
   }
+  
+  if (!responseType) responseType = "team";
   
   const responses = {
     team: `Based on your request about "${prompt}", I've analyzed recent performance data from VCT International to create an optimal team composition.
@@ -205,19 +198,29 @@ Here are my agent recommendations based on your requirements:`,
 
 Analyzing recent competition results and team performances...
 
-Here's what the data reveals about tournament strategies:`,
-    general: `I've analyzed your question: "${prompt}" and searched through Valorant data to find you an answer.
-
-Let me provide some insight based on current game knowledge and meta analysis...`
+Here's what the data reveals about tournament strategies:`
   };
   
   return {
     success: true,
     type: "text_response",
     data: responses[responseType as keyof typeof responses],
-    prompt: prompt,
-    isTeamRequest: classification.isTeamFormationRequest
+    prompt: prompt
   };
+}
+
+/**
+ * Check if the prompt is asking for agent selection advice
+ */
+function isAgentSelectionQuery(prompt: string): boolean {
+  const promptLower = prompt.toLowerCase();
+  const agentSelectionKeywords = [
+    "agent selection", "which agent", "best agent", "agent for", 
+    "pick agent", "should i play", "agent on", "good agent",
+    "meta agent", "agent meta"
+  ];
+  
+  return agentSelectionKeywords.some(keyword => promptLower.includes(keyword));
 }
 
 /**
