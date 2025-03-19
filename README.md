@@ -4,7 +4,7 @@
 
 ## Introduction
 
-SCOUTANT is an advanced team builder application designed to help you create and manage your dream team efficiently. Whether you're forming a sports team, a project team, or any other type of collaboration, SCOUTANT has you covered.
+Scoutant is a specialized platform designed to help Valorant players build and manage teams. Whether you're assembling a competitive roster or looking for reliable teammates, Scoutant connects you with agents that match your playstyle, rank, and goals. Level up your game with the perfect squad.
 
 ## Features
 
