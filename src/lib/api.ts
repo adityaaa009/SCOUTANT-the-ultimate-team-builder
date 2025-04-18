@@ -1,4 +1,3 @@
-
 import { fetchMultiplePlayersData } from "./vlrDataFetcher";
 import { recommendTeamComposition } from "./playerAnalysis";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,13 +26,13 @@ export async function fetchScoutantResponse(prompt: string): Promise<any> {
         
         if (aiResponse.error) {
           console.error("Error from analyze_players function:", aiResponse.error);
-          throw new Error(aiResponse.error.message);
+          return generateFallbackResponse(prompt, playersData);
         }
         
         const data = aiResponse.data;
         
         if (data.success) {
-          console.log("AI player analysis:", data);
+          console.log("AI player analysis successful:", data);
           return {
             success: true,
             type: "team_composition",
@@ -41,29 +40,17 @@ export async function fetchScoutantResponse(prompt: string): Promise<any> {
             prompt: prompt,
             playerNames: playerNames
           };
-        } else if (data.content) {
-          // If there's an error but we have content, use it as a fallback message
-          return {
-            success: true,
-            type: "text_response",
-            content: data.content
-          };
+        } else {
+          console.warn("AI analysis returned without success flag");
+          return generateFallbackResponse(prompt, playersData);
         }
       } catch (aiError) {
-        console.error("Error with AI player analysis, falling back to algorithm:", aiError);
-        // Fall back to algorithmic recommendation if AI fails
-        const recommendation = recommendTeamComposition(playersData);
-        return {
-          success: true,
-          type: "team_composition",
-          data: recommendation,
-          prompt: prompt,
-          playerNames: playerNames
-        };
+        console.error("Error with AI player analysis, falling back:", aiError);
+        return generateFallbackResponse(prompt, playersData);
       }
     }
     
-    // If it's an agent selection query, handle it
+    // Handle agent selection and other queries similarly...
     if (isAgentSelectionQuery(prompt)) {
       const mapName = extractMapName(prompt);
       if (mapName) {
@@ -77,7 +64,7 @@ export async function fetchScoutantResponse(prompt: string): Promise<any> {
           
           if (aiResponse.error) {
             console.error("Error from agent_selection function:", aiResponse.error);
-            throw new Error(aiResponse.error.message);
+            return generateFallbackResponse(prompt);
           }
           
           if (aiResponse.data && aiResponse.data.success) {
@@ -88,21 +75,17 @@ export async function fetchScoutantResponse(prompt: string): Promise<any> {
               prompt: prompt,
               mapName: mapName
             };
-          } else if (aiResponse.data && aiResponse.data.content) {
-            // Use content as fallback response if available
-            return {
-              success: true,
-              type: "text_response",
-              content: aiResponse.data.content
-            };
+          } else {
+            return generateFallbackResponse(prompt);
           }
         } catch (error) {
           console.error("Error with agent selection:", error);
+          return generateFallbackResponse(prompt);
         }
       }
     }
     
-    // For all other queries, use the OpenAI-powered scout chat
+    // Fallback to chat for other queries
     try {
       const aiResponse = await supabase.functions.invoke("scoutant-ai", {
         body: {
@@ -113,7 +96,7 @@ export async function fetchScoutantResponse(prompt: string): Promise<any> {
       
       if (aiResponse.error) {
         console.error("Error from scout_chat function:", aiResponse.error);
-        throw new Error(aiResponse.error.message);
+        return generateFallbackResponse(prompt);
       }
       
       if (aiResponse.data && aiResponse.data.content) {
@@ -124,21 +107,43 @@ export async function fetchScoutantResponse(prompt: string): Promise<any> {
         };
       }
       
-      return aiResponse.data;
+      return generateFallbackResponse(prompt);
     } catch (aiError) {
-      console.error("Error with AI chat, falling back to template response:", aiError);
-      // Fall back to template response if AI fails
-      return generateTextResponse(prompt);
+      console.error("Error with AI chat, falling back:", aiError);
+      return generateFallbackResponse(prompt);
     }
   } catch (error) {
     console.error("Error fetching Scoutant response:", error);
-    return { 
-      success: false, 
-      error: error.message,
+    return generateFallbackResponse(prompt);
+  }
+}
+
+/**
+ * Generate a text-based response for prompts that don't involve player analysis
+ */
+function generateFallbackResponse(prompt: string, playersData?: any[]) {
+  const defaultResponses = [
+    "I'm having trouble processing your request. Could you rephrase that?",
+    "Sorry, I couldn't generate a detailed response right now.",
+    "My AI assistant is currently experiencing some difficulties."
+  ];
+
+  const randomResponse = defaultResponses[Math.floor(Math.random() * defaultResponses.length)];
+
+  if (playersData && playersData.length > 0) {
+    const recommendation = recommendTeamComposition(playersData);
+    return {
+      success: true,
       type: "text_response",
-      content: `Sorry, I encountered an issue while processing your request. The team compositions and map recommendations are still available based on our internal data. Technical details: ${error.message}`
+      content: `${randomResponse}\n\nHowever, here's a basic team recommendation based on available data:\n${JSON.stringify(recommendation, null, 2)}`
     };
   }
+
+  return {
+    success: true,
+    type: "text_response",
+    content: randomResponse
+  };
 }
 
 /**
@@ -172,68 +177,6 @@ function extractPlayerNamesFromPrompt(prompt: string): string[] {
   }
   
   return [];
-}
-
-/**
- * Generate a text-based response for prompts that don't involve player analysis
- */
-function generateTextResponse(prompt: string): any {
-  const promptLower = prompt.toLowerCase();
-  
-  // Different response types based on prompt keywords
-  const keywords = {
-    team: ["composition", "roster", "lineup", "squad", "players"],
-    strategy: ["tactics", "approach", "plan", "method", "formation"],
-    map: ["map", "maps", "arena", "venue", "location"],
-    agent: ["agent", "character", "hero", "operator"],
-    tournament: ["tournament", "competition", "championship", "event"]
-  };
-  
-  let responseType = "";
-  
-  for (const [key, words] of Object.entries(keywords)) {
-    if (words.some(word => promptLower.includes(word))) {
-      responseType = key;
-      break;
-    }
-  }
-  
-  if (!responseType) responseType = "team";
-  
-  const responses = {
-    team: `Based on your request about "${prompt}", I've analyzed recent performance data from VCT International to create an optimal team composition.
-
-Data analysis complete. Creating a balanced roster that complements player strengths...
-
-Here's the recommended lineup:`,
-    strategy: `I've evaluated your query: "${prompt}" and developed strategic recommendations based on current meta analysis.
-
-Processing tactical data from recent professional matches...
-
-Strategy formation complete. Here are my tactical recommendations:`,
-    map: `Analyzing your request: "${prompt}" against the current map pool and meta.
-
-Evaluating win rates and composition effectiveness across various maps...
-
-Analysis complete. Here are the optimal maps for your scenario:`,
-    agent: `For your query about "${prompt}", I've assessed agent performance data across competitive tiers.
-
-Analyzing agent pick rates, win rates and utility effectiveness...
-
-Here are my agent recommendations based on your requirements:`,
-    tournament: `Based on your question about "${prompt}", I've compiled relevant tournament data.
-
-Analyzing recent competition results and team performances...
-
-Here's what the data reveals about tournament strategies:`
-  };
-  
-  return {
-    success: true,
-    type: "text_response",
-    data: responses[responseType as keyof typeof responses],
-    prompt: prompt
-  };
 }
 
 /**
