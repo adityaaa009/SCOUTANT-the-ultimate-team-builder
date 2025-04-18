@@ -1,3 +1,4 @@
+
 import { fetchMultiplePlayersData } from "./vlrDataFetcher";
 import { recommendTeamComposition } from "./playerAnalysis";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,6 +26,7 @@ export async function fetchScoutantResponse(prompt: string): Promise<any> {
         });
         
         if (aiResponse.error) {
+          console.error("Error from analyze_players function:", aiResponse.error);
           throw new Error(aiResponse.error.message);
         }
         
@@ -38,6 +40,13 @@ export async function fetchScoutantResponse(prompt: string): Promise<any> {
             data: data,
             prompt: prompt,
             playerNames: playerNames
+          };
+        } else if (data.content) {
+          // If there's an error but we have content, use it as a fallback message
+          return {
+            success: true,
+            type: "text_response",
+            content: data.content
           };
         }
       } catch (aiError) {
@@ -67,19 +76,28 @@ export async function fetchScoutantResponse(prompt: string): Promise<any> {
           });
           
           if (aiResponse.error) {
+            console.error("Error from agent_selection function:", aiResponse.error);
             throw new Error(aiResponse.error.message);
           }
           
-          return {
-            success: true,
-            type: "agent_selection",
-            data: aiResponse.data,
-            prompt: prompt,
-            mapName: mapName
-          };
+          if (aiResponse.data && aiResponse.data.success) {
+            return {
+              success: true,
+              type: "agent_selection",
+              data: aiResponse.data,
+              prompt: prompt,
+              mapName: mapName
+            };
+          } else if (aiResponse.data && aiResponse.data.content) {
+            // Use content as fallback response if available
+            return {
+              success: true,
+              type: "text_response",
+              content: aiResponse.data.content
+            };
+          }
         } catch (error) {
           console.error("Error with agent selection:", error);
-          throw error;
         }
       }
     }
@@ -94,7 +112,16 @@ export async function fetchScoutantResponse(prompt: string): Promise<any> {
       });
       
       if (aiResponse.error) {
+        console.error("Error from scout_chat function:", aiResponse.error);
         throw new Error(aiResponse.error.message);
+      }
+      
+      if (aiResponse.data && aiResponse.data.content) {
+        return {
+          success: true,
+          type: "text_response",
+          content: aiResponse.data.content
+        };
       }
       
       return aiResponse.data;
@@ -108,8 +135,8 @@ export async function fetchScoutantResponse(prompt: string): Promise<any> {
     return { 
       success: false, 
       error: error.message,
-      type: "error",
-      data: `An error occurred: ${error.message}`
+      type: "text_response",
+      content: `Sorry, I encountered an issue while processing your request. The team compositions and map recommendations are still available based on our internal data. Technical details: ${error.message}`
     };
   }
 }

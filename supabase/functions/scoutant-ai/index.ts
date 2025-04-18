@@ -17,18 +17,23 @@ serve(async (req) => {
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 
     if (!OPENAI_API_KEY) {
+      console.error('OpenAI API key is not configured');
       throw new Error('OpenAI API key is not configured');
     }
+
+    // Log the action and basic info about the request
+    console.log(`Processing action: ${action}`);
 
     // Handle different actions
     switch (action) {
       case 'analyze_players':
-        return handlePlayerAnalysis(data, OPENAI_API_KEY);
+        return await handlePlayerAnalysis(data, OPENAI_API_KEY);
       case 'scout_chat':
-        return handleScoutChat(data, OPENAI_API_KEY);
+        return await handleScoutChat(data, OPENAI_API_KEY);
       case 'agent_selection':
-        return handleAgentSelection(data, OPENAI_API_KEY);
+        return await handleAgentSelection(data, OPENAI_API_KEY);
       default:
+        console.error(`Unknown action requested: ${action}`);
         throw new Error(`Unknown action: ${action}`);
     }
   } catch (error) {
@@ -36,7 +41,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message 
+        error: error.message,
+        content: `An error occurred while processing your request. The AI assistant is temporarily unavailable, but team composition and map data are still accessible.`
       }),
       { 
         status: 400, 
