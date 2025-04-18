@@ -38,7 +38,8 @@ export async function fetchScoutantResponse(prompt: string): Promise<any> {
             type: "team_composition",
             data: data,
             prompt: prompt,
-            playerNames: playerNames
+            playerNames: playerNames,
+            content: "Here's a team composition according to your requirements"
           };
         } else {
           console.warn("AI analysis returned without success flag");
