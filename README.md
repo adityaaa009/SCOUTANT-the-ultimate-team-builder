@@ -21,7 +21,7 @@ SCOUTANT is built using modern web technologies to ensure a high-quality, respon
 
 - **TypeScript**: The primary programming language used for the application, providing strong typing and advanced features.
 - **CSS**: Used for styling the application, ensuring a visually appealing and responsive design.
-- **Other Technologies**: Includes various libraries and frameworks that enhance the functionality and performance of the application.
+- **Other Technologies**: Includes various libraries and frameworks that enhance the functionality and performance of the application..
 
 ## Live Demo
 
