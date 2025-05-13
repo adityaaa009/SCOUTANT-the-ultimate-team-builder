@@ -253,7 +253,8 @@ ${apiResponse.data.recommendations.map((rec: any) =>
 
 Strategy Notes: ${apiResponse.data.strategyNotes}`;
       } else if (apiResponse.type === "text_response") {
-        responseText = apiResponse.data;
+        // For predefined responses, display the content directly
+        responseText = apiResponse.content || apiResponse.data;
       } else if (apiResponse.type === "error") {
         responseText = `Error: ${apiResponse.data}`;
       } else {
