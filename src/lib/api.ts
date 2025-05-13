@@ -1,3 +1,4 @@
+
 import { fetchMultiplePlayersData } from "./vlrDataFetcher";
 import { recommendTeamComposition } from "./playerAnalysis";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,6 +8,13 @@ import { supabase } from "@/integrations/supabase/client";
  */
 export async function fetchScoutantResponse(prompt: string): Promise<any> {
   try {
+    // Check for predefined prompts first
+    const predefinedResponse = checkForPredefinedResponses(prompt);
+    if (predefinedResponse) {
+      console.log("Using predefined response for prompt:", prompt);
+      return predefinedResponse;
+    }
+    
     // Parse the prompt to extract player names or analyze prompt intent
     const playerNames = extractPlayerNamesFromPrompt(prompt);
     
@@ -117,6 +125,41 @@ export async function fetchScoutantResponse(prompt: string): Promise<any> {
     console.error("Error fetching Scoutant response:", error);
     return generateFallbackResponse(prompt);
   }
+}
+
+/**
+ * Check if the prompt matches any predefined responses
+ */
+function checkForPredefinedResponses(prompt: string): any | null {
+  const promptLower = prompt.toLowerCase().trim();
+  
+  // Map of predefined prompts to responses
+  const predefinedPrompts: Record<string, any> = {
+    "give me a team with crazy stats": {
+      success: true,
+      type: "text_response",
+      content: "Here's a team recommendation with impressive skillset."
+    },
+    "give me a team recommendation that's good at defense": {
+      success: true,
+      type: "text_response",
+      content: "Here's the best team for playing defensive."
+    }
+  };
+  
+  // Check if we have an exact match
+  if (predefinedPrompts[promptLower]) {
+    return predefinedPrompts[promptLower];
+  }
+  
+  // Check for close matches (startsWith, includes, etc.)
+  for (const [key, response] of Object.entries(predefinedPrompts)) {
+    if (promptLower.includes(key) || key.includes(promptLower)) {
+      return response;
+    }
+  }
+  
+  return null;
 }
 
 /**
