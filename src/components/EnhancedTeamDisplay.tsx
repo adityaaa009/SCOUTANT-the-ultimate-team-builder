@@ -109,9 +109,8 @@ const EnhancedTeamDisplay: React.FC<EnhancedTeamDisplayProps> = ({ recommendatio
                 </div>
                 
                 {player.analysis && (
-                  <div className="text-xs mb-2 p-2 rounded bg-muted/50">
-                    <p className="font-semibold mb-1">Analysis:</p>
-                    <p className="italic">{player.analysis}</p>
+                  <div className="text-xs mb-2 italic bg-muted/50 p-2 rounded">
+                    {player.analysis}
                   </div>
                 )}
                 
