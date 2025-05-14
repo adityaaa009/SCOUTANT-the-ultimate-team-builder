@@ -9,6 +9,8 @@ import { supabase } from "@/integrations/supabase/client";
  */
 export async function fetchScoutantResponse(prompt: string): Promise<any> {
   try {
+    console.log("Processing prompt:", prompt);
+    
     // Check for predefined prompts first
     const predefinedResponse = checkForPredefinedResponses(prompt);
     if (predefinedResponse) {
@@ -47,6 +49,8 @@ async function handlePlayerAnalysis(prompt: string, playerNames: string[]) {
     
     // Use OpenAI for enhanced player analysis
     try {
+      console.log("Calling analyze_players function with data:", JSON.stringify(playersData).substring(0, 100) + '...');
+      
       const aiResponse = await supabase.functions.invoke("scoutant-ai", {
         body: {
           action: "analyze_players",
@@ -60,9 +64,10 @@ async function handlePlayerAnalysis(prompt: string, playerNames: string[]) {
       }
       
       const data = aiResponse.data;
+      console.log("AI response data:", JSON.stringify(data).substring(0, 100) + '...');
       
       if (data.success) {
-        console.log("AI player analysis successful:", data);
+        console.log("AI player analysis successful");
         return {
           success: true,
           type: "team_composition",
@@ -95,6 +100,8 @@ async function handleAgentSelection(prompt: string) {
   }
   
   try {
+    console.log("Calling agent_selection function for map:", mapName);
+    
     const aiResponse = await supabase.functions.invoke("scoutant-ai", {
       body: {
         action: "agent_selection",
@@ -106,6 +113,8 @@ async function handleAgentSelection(prompt: string) {
       console.error("Error from agent_selection function:", aiResponse.error);
       return generateFallbackResponse(prompt);
     }
+    
+    console.log("Agent selection response:", JSON.stringify(aiResponse.data).substring(0, 100) + '...');
     
     if (aiResponse.data && aiResponse.data.success) {
       return {
@@ -129,6 +138,8 @@ async function handleAgentSelection(prompt: string) {
  */
 async function handleChatQuery(prompt: string) {
   try {
+    console.log("Calling scout_chat function with prompt:", prompt);
+    
     const aiResponse = await supabase.functions.invoke("scoutant-ai", {
       body: {
         action: "scout_chat",
@@ -140,6 +151,8 @@ async function handleChatQuery(prompt: string) {
       console.error("Error from scout_chat function:", aiResponse.error);
       return generateFallbackResponse(prompt);
     }
+    
+    console.log("Chat response received:", JSON.stringify(aiResponse.data).substring(0, 100) + '...');
     
     if (aiResponse.data && aiResponse.data.content) {
       return {
