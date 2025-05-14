@@ -54,7 +54,11 @@ async function handlePlayerAnalysis(prompt: string, playerNames: string[]) {
       const aiResponse = await supabase.functions.invoke("scoutant-ai", {
         body: {
           action: "analyze_players",
-          data: { players: playersData }
+          data: { 
+            players: playersData,
+            includeExplanation: true, // Request explanations
+            prompt: prompt // Pass original prompt for context
+          }
         }
       });
       
@@ -74,7 +78,7 @@ async function handlePlayerAnalysis(prompt: string, playerNames: string[]) {
           data: data,
           prompt: prompt,
           playerNames: playerNames,
-          content: "Here's a team composition according to your requirements"
+          content: "Here's a team composition according to your requirements with detailed explanations for each player's agent selection."
         };
       } else {
         console.warn("AI analysis returned without success flag");
@@ -105,7 +109,11 @@ async function handleAgentSelection(prompt: string) {
     const aiResponse = await supabase.functions.invoke("scoutant-ai", {
       body: {
         action: "agent_selection",
-        data: { map: mapName }
+        data: { 
+          map: mapName,
+          includeExplanation: true, // Request explanations
+          prompt: prompt // Pass original prompt for context
+        }
       }
     });
     
@@ -140,10 +148,26 @@ async function handleChatQuery(prompt: string) {
   try {
     console.log("Calling scout_chat function with prompt:", prompt);
     
+    // Get chat history if available to maintain context
+    const storedHistory = localStorage.getItem("scoutant-prompt-history");
+    const chatHistory = storedHistory ? JSON.parse(storedHistory) : [];
+    
+    // Format chat history for the API
+    const formattedHistory = chatHistory.map(item => ({
+      role: 'user',
+      content: item.text
+    })).concat(chatHistory.map(item => ({
+      role: 'assistant',
+      content: item.response
+    }))).slice(-10); // Keep last 10 messages for context
+    
     const aiResponse = await supabase.functions.invoke("scoutant-ai", {
       body: {
         action: "scout_chat",
-        data: { prompt }
+        data: { 
+          prompt,
+          chatHistory: formattedHistory
+        }
       }
     });
     
