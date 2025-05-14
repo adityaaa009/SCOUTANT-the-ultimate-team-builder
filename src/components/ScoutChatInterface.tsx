@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { toast } from "@/components/ui/use-toast";
 
 interface Prompt {
   id: string;
@@ -37,10 +38,31 @@ const ScoutChatInterface: React.FC<ScoutChatInterfaceProps> = ({
   const isMobile = useIsMobile();
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && prompt.trim()) {
+    if (e.key === 'Enter' && !e.shiftKey && prompt.trim()) {
+      e.preventDefault();
       handlePromptSubmit();
     }
   };
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (prompt.trim()) {
+      handlePromptSubmit();
+    } else {
+      toast({
+        title: "Error",
+        description: "Please enter a prompt first",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Scroll to bottom when messages change
+  React.useEffect(() => {
+    if (messageEndRef.current) {
+      messageEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [promptHistory]);
 
   return (
     <>
@@ -140,7 +162,7 @@ const ScoutChatInterface: React.FC<ScoutChatInterfaceProps> = ({
       </ScrollArea>
 
       <div className="border-t border-border p-4 sticky bottom-0 bg-background">
-        <div className="relative flex items-center">
+        <form onSubmit={onSubmit} className="relative flex items-center">
           <Mic className="absolute left-4 h-5 w-5 text-muted-foreground" />
           <input
             type="text"
@@ -149,21 +171,26 @@ const ScoutChatInterface: React.FC<ScoutChatInterfaceProps> = ({
             onKeyDown={handleKeyDown}
             placeholder="Ask about players, teams, agents, or strategies..."
             className="w-full rounded-full bg-card/70 border border-border py-3 pl-12 pr-20 focus:outline-none focus:border-primary transition-all"
+            disabled={isLoading}
           />
           <div className="absolute right-2 flex gap-2">
             <Button 
+              type="submit"
               disabled={!prompt.trim() || isLoading} 
-              onClick={handlePromptSubmit}
               size="sm" 
-              className={`rounded-full ${prompt.trim() ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-500'}`}
+              className={`rounded-full ${prompt.trim() && !isLoading ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-500'}`}
             >
-              <Send className="h-4 w-4" />
+              {isLoading ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-t-transparent border-white"></div>
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
               <span className={isMobile ? "" : "ml-1"}>
-                {isMobile ? "" : "SEND"}
+                {isMobile ? "" : (isLoading ? "SENDING..." : "SEND")}
               </span>
             </Button>
           </div>
-        </div>
+        </form>
       </div>
     </>
   );

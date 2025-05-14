@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from "react";
 import { toast } from "sonner";
 import { auth } from "@/lib/auth";
@@ -28,7 +27,10 @@ export const useScoutActions = () => {
   } = useScoutData();
 
   const handlePromptSubmit = async () => {
-    if (!prompt.trim()) return;
+    if (!prompt.trim()) {
+      toast.error("Please enter a prompt first");
+      return;
+    }
     
     if (promptCount >= 2 && !isAuthenticated) {
       toast.error("Free trial limit reached. Please sign in to continue.");
@@ -39,6 +41,7 @@ export const useScoutActions = () => {
     setPromptCount(prevCount => prevCount + 1);
     
     try {
+      console.log("Submitting prompt:", prompt);
       const newPromptId = Date.now().toString();
       const newPrompt = {
         id: newPromptId,
@@ -49,9 +52,11 @@ export const useScoutActions = () => {
       
       setPromptHistory(prev => [...prev, newPrompt]);
       
+      // Clear input field
       setPrompt("");
       
       const apiResponse = await fetchScoutantResponse(prompt);
+      console.log("API response:", apiResponse);
       
       if (apiResponse.error) {
         throw new Error(apiResponse.error);
@@ -84,7 +89,10 @@ Strategy Notes: ${apiResponse.data.strategyNotes}`;
         responseText = "I couldn't process that request. Please try again with a different query.";
       }
       
+      console.log("Setting response text:", responseText.substring(0, 100) + "...");
+      
       setTimeout(() => {
+        // Update the prompt history with the response
         setPromptHistory(prev => 
           prev.map(item => 
             item.id === newPromptId 
@@ -95,6 +103,7 @@ Strategy Notes: ${apiResponse.data.strategyNotes}`;
         
         setResponse(responseText);
         
+        // Generate random data for demo purposes
         const newPlayerCards = generateRandomPlayerData();
         const newMapCards = generateRandomMapData();
         
@@ -102,7 +111,9 @@ Strategy Notes: ${apiResponse.data.strategyNotes}`;
         setMapCards(newMapCards);
         
         setIsLoading(false);
-      }, 1500);
+        
+        console.log("Prompt processing complete");
+      }, 1000);
       
     } catch (error) {
       console.error("Error in handlePromptSubmit:", error);
@@ -110,7 +121,7 @@ Strategy Notes: ${apiResponse.data.strategyNotes}`;
       
       setPromptHistory(prev => 
         prev.map(item => 
-          item.id === Date.now().toString() 
+          item.text === prompt
             ? { ...item, response: "An error occurred while processing your request." } 
             : item
         )
