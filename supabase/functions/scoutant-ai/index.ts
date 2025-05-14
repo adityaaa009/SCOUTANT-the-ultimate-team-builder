@@ -22,7 +22,7 @@ serve(async (req) => {
     }
 
     // Log the action and basic info about the request
-    console.log(`Processing action: ${action}`);
+    console.log(`Processing action: ${action} with data:`, JSON.stringify(data).substring(0, 100) + '...');
 
     // Handle different actions
     switch (action) {
