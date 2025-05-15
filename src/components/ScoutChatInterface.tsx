@@ -37,10 +37,18 @@ const ScoutChatInterface: React.FC<ScoutChatInterfaceProps> = ({
   const isMobile = useIsMobile();
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && prompt.trim()) {
+    if (e.key === 'Enter' && prompt.trim() && !isLoading) {
+      e.preventDefault();
       handlePromptSubmit();
     }
   };
+
+  // Scroll to bottom when new messages arrive
+  React.useEffect(() => {
+    if (messageEndRef.current) {
+      messageEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [promptHistory]);
 
   return (
     <>
@@ -140,7 +148,15 @@ const ScoutChatInterface: React.FC<ScoutChatInterfaceProps> = ({
       </ScrollArea>
 
       <div className="border-t border-border p-4 sticky bottom-0 bg-background">
-        <div className="relative flex items-center">
+        <form 
+          className="relative flex items-center"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (prompt.trim() && !isLoading) {
+              handlePromptSubmit();
+            }
+          }}
+        >
           <Mic className="absolute left-4 h-5 w-5 text-muted-foreground" />
           <input
             type="text"
@@ -149,21 +165,26 @@ const ScoutChatInterface: React.FC<ScoutChatInterfaceProps> = ({
             onKeyDown={handleKeyDown}
             placeholder="Ask about players, teams, agents, or strategies..."
             className="w-full rounded-full bg-card/70 border border-border py-3 pl-12 pr-20 focus:outline-none focus:border-primary transition-all"
+            disabled={isLoading}
           />
           <div className="absolute right-2 flex gap-2">
             <Button 
+              type="submit"
               disabled={!prompt.trim() || isLoading} 
-              onClick={handlePromptSubmit}
               size="sm" 
-              className={`rounded-full ${prompt.trim() ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-500'}`}
+              className={`rounded-full ${prompt.trim() && !isLoading ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-500'} flex items-center`}
             >
-              <Send className="h-4 w-4" />
+              {isLoading ? (
+                <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-1" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
               <span className={isMobile ? "" : "ml-1"}>
-                {isMobile ? "" : "SEND"}
+                {isMobile ? "" : isLoading ? "SENDING..." : "SEND"}
               </span>
             </Button>
           </div>
-        </div>
+        </form>
       </div>
     </>
   );

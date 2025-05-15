@@ -39,6 +39,8 @@ export const useScoutActions = () => {
     setPromptCount(prevCount => prevCount + 1);
     
     try {
+      console.log("Submitting prompt:", prompt);
+      
       const newPromptId = Date.now().toString();
       const newPrompt = {
         id: newPromptId,
@@ -49,11 +51,15 @@ export const useScoutActions = () => {
       
       setPromptHistory(prev => [...prev, newPrompt]);
       
+      const savedPrompt = prompt;
       setPrompt("");
       
-      const apiResponse = await fetchScoutantResponse(prompt);
+      console.log("Fetching response from API...");
+      const apiResponse = await fetchScoutantResponse(savedPrompt);
+      console.log("API Response received:", apiResponse);
       
       if (apiResponse.error) {
+        console.error("API returned error:", apiResponse.error);
         throw new Error(apiResponse.error);
       }
       
@@ -102,7 +108,7 @@ Strategy Notes: ${apiResponse.data.strategyNotes}`;
         setMapCards(newMapCards);
         
         setIsLoading(false);
-      }, 1500);
+      }, 1000);
       
     } catch (error) {
       console.error("Error in handlePromptSubmit:", error);
@@ -138,21 +144,18 @@ Strategy Notes: ${apiResponse.data.strategyNotes}`;
 
   const handlePlayerDataFetched = useCallback((data: any[]) => {
     // Handle player data being fetched
+    console.log("Player data fetched:", data);
   }, []);
 
   const handleTeamRecommendation = useCallback((recommendation: any) => {
+    console.log("Team recommendation received:", recommendation);
     setTeamRecommendation(recommendation);
   }, [setTeamRecommendation]);
-
-  const toggleAnalysisMode = useCallback((mode: "chat" | "direct" | "agent-selection") => {
-    // Handle toggling analysis mode
-  }, []);
 
   return {
     handlePromptSubmit,
     handleLogout,
     handlePlayerDataFetched,
-    handleTeamRecommendation,
-    toggleAnalysisMode
+    handleTeamRecommendation
   };
 };

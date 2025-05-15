@@ -19,7 +19,8 @@ export async function handleScoutChat(data: { prompt: string; chatHistory?: any[
         Answer questions concisely and accurately, focusing on providing strategic insights and data-driven recommendations.
         When discussing player performance, consider ACS, KD ratio, ADR, KAST, and other relevant metrics.
         When discussing team composition, focus on synergy between agents, map-specific strategies, and role balance.
-        Base your responses on current meta and professional play patterns.`
+        Base your responses on current meta and professional play patterns.
+        Always provide reasoning for your recommendations.`
       },
       ...chatHistory.map(msg => ({
         role: msg.role,
