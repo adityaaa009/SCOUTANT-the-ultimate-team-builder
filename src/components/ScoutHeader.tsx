@@ -1,7 +1,7 @@
 
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { Search, LogOut, PieChart, ListFilter } from "lucide-react";
+import { Search, LogOut, PieChart, ListFilter, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 
 interface ScoutHeaderProps {
