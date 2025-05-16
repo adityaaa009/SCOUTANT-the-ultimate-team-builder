@@ -14,78 +14,71 @@ export async function handleAgentSelection(data: { map: string; playerStats?: an
     return generateFallbackAgentResponse(map);
   }
 
-  const prompt = `
-    Recommend optimal agent selections for a Valorant team on ${map} map.
-    
-    ${playerStats ? `Player statistics: ${JSON.stringify(playerStats, null, 2)}` : ''}
-    ${teamComposition.length > 0 ? `Current team composition: ${teamComposition.join(', ')}` : ''}
-    
-    Please consider:
-    1. Map-specific agent effectiveness
-    2. Current meta strategies
-    3. Team composition balance
-    4. Agent synergies
-    
-    Format your response as a JSON with the following structure:
-    {
-      "success": true,
-      "recommendations": [
-        {
-          "agent": "agent_name",
-          "role": "agent_role",
-          "map_effectiveness": 0.90,
-          "reason": "Brief explanation for this recommendation"
-        }
-      ],
-      "strategyNotes": "Brief overview of recommended strategy with these agents"
-    }
-  `;
-
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: 'You are an expert Valorant analyst specializing in map strategies and agent selection.' },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.3,
-      }),
-    });
-
-    const result = await response.json();
-    
-    if (!response.ok) {
-      console.error(`OpenAI API error: ${JSON.stringify(result.error)}`);
+    const prompt = `
+      Recommend optimal agent selections for a Valorant team on ${map} map.
       
-      // Check specifically for quota exceeded error
-      if (result.error?.type === "insufficient_quota" || 
-          result.error?.message?.includes("exceeded your current quota")) {
+      ${playerStats ? `Player statistics: ${JSON.stringify(playerStats, null, 2)}` : ''}
+      ${teamComposition.length > 0 ? `Current team composition: ${teamComposition.join(', ')}` : ''}
+      
+      Please consider:
+      1. Map-specific agent effectiveness
+      2. Current meta strategies
+      3. Team composition balance
+      4. Agent synergies
+      
+      Format your response as a JSON with the following structure:
+      {
+        "success": true,
+        "recommendations": [
+          {
+            "agent": "agent_name",
+            "role": "agent_role",
+            "map_effectiveness": 0.90,
+            "reason": "Brief explanation for this recommendation"
+          }
+        ],
+        "strategyNotes": "Brief overview of recommended strategy with these agents"
+      }
+    `;
+
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: 'You are an expert Valorant analyst specializing in map strategies and agent selection.' },
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.3,
+        }),
+      });
+
+      const result = await response.json();
+      
+      if (!response.ok) {
+        console.error(`OpenAI API error: ${JSON.stringify(result.error)}`);
         return generateFallbackAgentResponse(map);
       }
       
-      throw new Error(`OpenAI API error: ${result.error?.message || 'Unknown error'}`);
-    }
-    
-    try {
-      const agentResult = JSON.parse(result.choices[0].message.content);
-      return new Response(
-        JSON.stringify(agentResult),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    } catch (e) {
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          rawAnalysis: result.choices[0].message.content 
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      try {
+        const agentResult = JSON.parse(result.choices[0].message.content);
+        return new Response(
+          JSON.stringify(agentResult),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch (e) {
+        console.error("Error parsing OpenAI response:", e);
+        return generateFallbackAgentResponse(map);
+      }
+    } catch (error) {
+      console.error("Error calling OpenAI API:", error);
+      return generateFallbackAgentResponse(map);
     }
   } catch (error) {
     console.error("Error in handleAgentSelection:", error);
@@ -135,6 +128,56 @@ function generateFallbackAgentResponse(map: string) {
         { agent: "Fade", role: "Initiator", map_effectiveness: 0.88, reason: "Haunt good for revealing multiple enemies on large sites" }
       ],
       strategyNotes: "Map favors long-range engagements. Viper is almost mandatory for site executes."
+    },
+    "Split": {
+      recommendations: [
+        { agent: "Raze", role: "Duelist", map_effectiveness: 0.95, reason: "Great for clearing tight corners and spaces with utility" },
+        { agent: "Omen", role: "Controller", map_effectiveness: 0.93, reason: "Smokes and teleport excellent for map control" },
+        { agent: "Cypher", role: "Sentinel", map_effectiveness: 0.92, reason: "Trip wires strong for watching flanks in many choke points" },
+        { agent: "Breach", role: "Initiator", map_effectiveness: 0.94, reason: "Stuns and flashes great for tight corridors and site takes" },
+        { agent: "Sage", role: "Sentinel", map_effectiveness: 0.91, reason: "Wall can block key pathways particularly at mid and B" }
+      ],
+      strategyNotes: "Map favors control of middle area. Verticality makes sound cues very important."
+    },
+    "Fracture": {
+      recommendations: [
+        { agent: "Neon", role: "Duelist", map_effectiveness: 0.90, reason: "Mobility helps cover the unique layout of the map" },
+        { agent: "Brimstone", role: "Controller", map_effectiveness: 0.89, reason: "Smokes help control the many entry points" },
+        { agent: "Chamber", role: "Sentinel", map_effectiveness: 0.88, reason: "Teleport great for playing different positions" },
+        { agent: "Fade", role: "Initiator", map_effectiveness: 0.92, reason: "Recon abilities help track enemies across the split map" },
+        { agent: "KAY/O", role: "Initiator", map_effectiveness: 0.87, reason: "Suppression blade valuable for disabling abilities during pushes" }
+      ],
+      strategyNotes: "Map requires coordination due to attackers having multiple entry points. Information control is critical."
+    },
+    "Lotus": {
+      recommendations: [
+        { agent: "Jett", role: "Duelist", map_effectiveness: 0.88, reason: "Mobility helps navigate through the three-site layout" },
+        { agent: "Harbor", role: "Controller", map_effectiveness: 0.90, reason: "Water walls great for blocking sightlines in the circular layout" },
+        { agent: "Killjoy", role: "Sentinel", map_effectiveness: 0.89, reason: "Utility helps lock down sites against flanks" },
+        { agent: "Skye", role: "Initiator", map_effectiveness: 0.91, reason: "Info gathering crucial for the complex layout" },
+        { agent: "Gekko", role: "Initiator", map_effectiveness: 0.86, reason: "Recallable utility good for taking map control" }
+      ],
+      strategyNotes: "Three sites makes rotation timing crucial. Control of the wheel (mid) area opens up options."
+    },
+    "Pearl": {
+      recommendations: [
+        { agent: "Raze", role: "Duelist", map_effectiveness: 0.87, reason: "Utility good for clearing tight urban spaces" },
+        { agent: "Astra", role: "Controller", map_effectiveness: 0.93, reason: "Global presence helps control the large mid area" },
+        { agent: "Cypher", role: "Sentinel", map_effectiveness: 0.89, reason: "Trip wires strong for watching multiple pathways" },
+        { agent: "Fade", role: "Initiator", map_effectiveness: 0.90, reason: "Recon abilities helpful on this multi-level map" },
+        { agent: "Sage", role: "Sentinel", map_effectiveness: 0.85, reason: "Wall can block key pathways and divide sites" }
+      ],
+      strategyNotes: "Mid control important as it connects to both sites. The map has multiple levels that add vertical complexity."
+    },
+    "Sunset": {
+      recommendations: [
+        { agent: "Phoenix", role: "Duelist", map_effectiveness: 0.89, reason: "Flashes and wall great for controlling narrow corridors" },
+        { agent: "Omen", role: "Controller", map_effectiveness: 0.91, reason: "Smokes and teleport valuable for map control" },
+        { agent: "Deadlock", role: "Sentinel", map_effectiveness: 0.87, reason: "Barriers good for controlling the open spaces" },
+        { agent: "KAY/O", role: "Initiator", map_effectiveness: 0.90, reason: "Suppression useful in the compact layout" },
+        { agent: "Iso", role: "Duelist", map_effectiveness: 0.86, reason: "Abilities good for isolating enemies in key positions" }
+      ],
+      strategyNotes: "Map layout favors execution-heavy strategies. Coordinated utility usage is important."
     }
   };
   
@@ -150,7 +193,17 @@ function generateFallbackAgentResponse(map: string) {
     strategyNotes: "This is a balanced team composition that should be effective on most maps."
   };
   
-  const recommendations = mapRecommendations[map] || defaultRecommendations;
+  // Convert to lowercase for case-insensitive comparison
+  const mapLower = map.toLowerCase();
+  
+  // Look for the map in our recommendations
+  let recommendations = defaultRecommendations;
+  for (const [mapKey, mapData] of Object.entries(mapRecommendations)) {
+    if (mapKey.toLowerCase() === mapLower) {
+      recommendations = mapData;
+      break;
+    }
+  }
   
   return new Response(
     JSON.stringify({

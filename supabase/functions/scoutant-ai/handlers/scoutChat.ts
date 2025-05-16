@@ -12,128 +12,179 @@ export async function handleScoutChat(data: { prompt: string; chatHistory?: any[
   console.log(`Processing chat request: "${prompt.substring(0, 30)}..."`);
   
   try {
-    // Check if the OpenAI API key is available and valid
-    if (!apiKey || apiKey.trim() === '') {
-      console.warn("Missing or invalid OpenAI API key");
-      return generateFallbackResponse(prompt, "missing_api_key");
-    }
-    
-    const messages = [
-      { 
-        role: 'system', 
-        content: `You are SCOUTANT, an expert Valorant AI assistant specializing in player analysis, team composition, agent selection, and professional esports. 
-        Answer questions concisely and accurately, focusing on providing strategic insights and data-driven recommendations.
-        When discussing player performance, consider ACS, KD ratio, ADR, KAST, and other relevant metrics.
-        When discussing team composition, focus on synergy between agents, map-specific strategies, and role balance.
-        Base your responses on current meta and professional play patterns.`
-      },
-      ...chatHistory.map(msg => ({
-        role: msg.role,
-        content: msg.content
-      })),
-      { role: 'user', content: prompt }
-    ];
-
-    console.log(`Sending request to OpenAI API with ${messages.length} messages`);
-    
-    try {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages,
-          temperature: 0.7,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("OpenAI API error:", errorData);
-        
-        // Check specifically for quota exceeded error
-        if (errorData.error?.type === "insufficient_quota" || 
-            errorData.error?.message?.includes("exceeded your current quota")) {
-          return generateFallbackResponse(prompt, "quota_exceeded");
-        }
-        
-        throw new Error(`OpenAI API error: ${errorData.error?.message || `Status ${response.status}`}`);
-      }
-      
-      const result = await response.json();
-      console.log("OpenAI API response received successfully");
-      
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          content: result.choices[0].message.content,
-          type: "text_response"
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    } catch (apiError) {
-      console.error("Error calling OpenAI API:", apiError);
-      return generateFallbackResponse(prompt, "api_error");
-    }
+    // Skip OpenAI API call and generate fallback response directly
+    return generateFallbackResponse(prompt);
   } catch (error) {
     console.error("Error in handleScoutChat:", error);
     return generateFallbackResponse(prompt, "general_error", error.message);
   }
 }
 
-// Generate a more helpful fallback response based on error type
-function generateFallbackResponse(prompt: string, errorType: string, errorDetails?: string) {
-  // Analyze prompt to provide a somewhat relevant response
+// Generate a more helpful fallback response based on the prompt content
+function generateFallbackResponse(prompt: string, errorType?: string, errorDetails?: string) {
+  // Analyze prompt to provide a relevant response
   const promptLower = prompt.toLowerCase();
   
-  // Check for common topics in the prompt to provide a better fallback
-  const isAboutAgents = /agent|duelist|controller|initiator|sentinel/i.test(promptLower);
-  const isAboutMaps = /map|haven|bind|ascent|split|breeze|lotus|pearl|sunset/i.test(promptLower);
-  const isAboutPlayers = /player|pro|team|stats|performance/i.test(promptLower);
-  
+  // Pattern matching for different Valorant topics
+  if (/best (agent|duelist|controller|initiator|sentinel)/i.test(promptLower)) {
+    return agentRecommendationResponse(promptLower);
+  } else if (/map|haven|bind|ascent|split|breeze|lotus|pearl|sunset/i.test(promptLower)) {
+    return mapStrategyResponse(promptLower);
+  } else if (/player|pro|team|stats|performance/i.test(promptLower)) {
+    return playerAnalysisResponse(promptLower);
+  } else if (/meta|current|patch|update/i.test(promptLower)) {
+    return metaAnalysisResponse(promptLower);
+  } else if (/aim|improve|tip|advice|rank up|better/i.test(promptLower)) {
+    return improvementTipsResponse(promptLower);
+  } else {
+    // Default response if no specific topic is detected
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        content: "As your Valorant analyst, I can provide insights on team compositions, agent selections, player comparisons, and gameplay strategies. For specific information, try asking about particular agents, maps, or professional players. Consider balancing team compositions with different roles for optimal performance.",
+        type: "text_response"
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+}
+
+function agentRecommendationResponse(prompt: string) {
   let responseContent = "";
   
-  // Base response on error type
-  switch (errorType) {
-    case "quota_exceeded":
-      responseContent = "I'm currently experiencing high demand and my AI service quota has been temporarily reached. ";
-      break;
-    case "missing_api_key":
-      responseContent = "My AI service is currently unavailable due to configuration issues. ";
-      break;
-    case "api_error":
-      responseContent = "I'm having trouble connecting to my AI service right now. ";
-      break;
-    case "general_error":
-      responseContent = `I encountered an unexpected error while processing your request. ${errorDetails ? `Details: ${errorDetails}` : ''} `;
-      break;
-    default:
-      responseContent = "I'm experiencing technical difficulties at the moment. ";
-  }
-  
-  // Add topic-specific content based on prompt analysis
-  if (isAboutAgents) {
-    responseContent += "For agent information, I recommend checking the current meta on sites like blitz.gg or valorbuff.com. Popular agents in the current meta include Jett, Fade, Skye, and Omen, but agent selection should always consider map and team composition.";
-  } else if (isAboutMaps) {
-    responseContent += "Map strategies vary widely in Valorant. Each map has unique callouts, optimal agent compositions, and execution strategies. Consider watching professional matches on the specific map you're interested in to learn current meta strategies.";
-  } else if (isAboutPlayers) {
-    responseContent += "Player performance is typically measured using metrics like ACS (Average Combat Score), K/D ratio, ADR (Average Damage per Round), and KAST percentage. These statistics can be found on official VCT websites or third-party analytics platforms.";
+  // Check for specific agent roles
+  if (prompt.includes("duelist")) {
+    responseContent = "The strongest duelists in the current meta are Jett and Raze. Jett excels on maps with vertical play and Operator opportunities like Ascent and Breeze. Raze is dominant on maps with tight spaces like Split and Bind. Phoenix and Neon are solid alternatives with self-sufficient utility.";
+  } else if (prompt.includes("controller")) {
+    responseContent = "Omen is currently the most versatile controller with global smoke placement and repositioning ability. Astra offers excellent site control and utility for coordinated teams. Viper is essential on larger maps like Breeze and Icebox. Brimstone provides precise execute potential with his stim beacon and ultimate.";
+  } else if (prompt.includes("sentinel")) {
+    responseContent = "Chamber has been the dominant sentinel with his teleport and Operator capabilities, though recent nerfs have balanced him. Killjoy offers excellent site anchoring and post-plant utility. Cypher provides valuable information gathering. Sage remains valuable for her wall and healing abilities.";
+  } else if (prompt.includes("initiator")) {
+    responseContent = "Fade has become one of the strongest initiators with her multi-target reveal and disruptive utility. Sova remains essential on open maps for his recon abilities. Skye provides team healing and flash utility. KAY/O's suppress ability is powerful against utility-dependent compositions.";
   } else {
-    responseContent += "While my advanced features are temporarily unavailable, you can still access basic information about Valorant agents, maps, and general strategies through the app's static content.";
+    // General agent recommendation
+    responseContent = "The current agent meta favors flexible compositions with strong controllers and information-gathering initiators. Top-tier agents include:\n\n" +
+      "- Duelists: Jett, Raze\n" +
+      "- Controllers: Omen, Astra, Viper (map-dependent)\n" +
+      "- Sentinels: Chamber, Killjoy\n" +
+      "- Initiators: Fade, Sova, Skye\n\n" +
+      "Agent selection should be map-dependent and balance team composition needs.";
   }
-  
-  // Add a general closing note
-  responseContent += " I'll be back with my full functionality soon!";
   
   return new Response(
     JSON.stringify({ 
       success: true, 
       content: responseContent,
-      type: "text_response",
-      is_fallback: true
+      type: "text_response"
+    }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
+}
+
+function mapStrategyResponse(prompt: string) {
+  let mapContent = "";
+  
+  // Check for specific maps
+  if (prompt.includes("ascent")) {
+    mapContent = "Ascent favors mid control which opens options to both sites. A standard composition includes Jett, Omen, Killjoy, Fade, and Chamber. Killjoy is excellent for B site anchoring, while Operator agents can hold A main and mid. Focus on establishing control of mid, catwalk, and market for rotational advantage.";
+  } else if (prompt.includes("bind")) {
+    mapContent = "Bind's unique teleporters create rotation challenges. Raze excels for clearing tight spaces like hookah and bathroom. Brimstone provides precise smoke execution. Cypher helps watch flanks on this map with many paths. Double controller setups with Brimstone and Viper can be effective for site executes.";
+  } else if (prompt.includes("haven")) {
+    mapContent = "Haven is the only map with three sites, making information gathering and fast rotations crucial. Astra can control multiple areas simultaneously. Phoenix and Breach work well in the long corridors. Killjoy is strong for holding C site. Prioritize mid control to enable faster rotations between sites.";
+  } else if (prompt.includes("breeze")) {
+    mapContent = "Breeze's large open spaces favor long-range engagements. Jett and Chamber excel with the Operator. Viper is almost mandatory for splitting sites with her wall. Sova provides crucial recon information. Focus on controlling mid and halls for rotational advantage.";
+  } else if (prompt.includes("split")) {
+    mapContent = "Split features narrow corridors and verticality. Raze and Breach excel in tight spaces. Sage's wall is crucial for mid control. Cypher and Omen provide strong utility for site control. Focus on establishing mid control to squeeze sites from multiple angles.";
+  } else {
+    // General map strategy
+    mapContent = "Each Valorant map requires specific agent compositions and strategies. Focus on controlling key areas that enable rotation options. For attacking, establish a default setup to gather information before committing. For defending, establish crossfires and use utility to delay pushes. Agent selection should complement the map's unique features.";
+  }
+  
+  return new Response(
+    JSON.stringify({ 
+      success: true, 
+      content: mapContent,
+      type: "text_response"
+    }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
+}
+
+function playerAnalysisResponse(prompt: string) {
+  let playerContent = "";
+  
+  // Check for specific players
+  if (prompt.includes("tenz")) {
+    playerContent = "TenZ is known for his exceptional mechanical skill and movement. He excels on duelists like Jett and has some of the highest ACS (250+) and KD ratios (1.2+) in professional play. His aggressive playstyle makes him an excellent entry fragger, though sometimes at the cost of consistency.";
+  } else if (prompt.includes("yay")) {
+    playerContent = "yay (El Diablo) is regarded as one of the most consistent players with exceptional Operator play. He maintains a high headshot percentage (25-30%) and KD ratio (1.3+). He's versatile across agents but particularly excels on Chamber and Jett.";
+  } else if (prompt.includes("nats")) {
+    playerContent = "nAts is known for his exceptional lurking and clutch capabilities. He excels on sentinels like Cypher and Killjoy, maintaining high impact with smart positioning rather than pure aim duels. His utility usage is considered among the best for sentinel players.";
+  } else {
+    // General player analysis
+    playerContent = "Professional Valorant players are evaluated based on several key metrics:\n\n" +
+      "- ACS (Average Combat Score): Measures overall impact, with 250+ considered excellent\n" +
+      "- KD Ratio: Kill-to-death ratio, with 1.2+ considered strong\n" +
+      "- ADR (Average Damage per Round): 160+ is considered high impact\n" +
+      "- KAST%: Percentage of rounds with a Kill, Assist, Survival, or Trade\n" +
+      "- First Blood %: Success rate on opening duels\n\n" +
+      "Top players typically specialize in specific agent roles while maintaining flexibility for team needs.";
+  }
+  
+  return new Response(
+    JSON.stringify({ 
+      success: true, 
+      content: playerContent,
+      type: "text_response"
+    }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
+}
+
+function metaAnalysisResponse(prompt: string) {
+  const metaContent = "The current Valorant meta favors balanced compositions with strong controller presence. Key trends include:\n\n" +
+    "- Double controller setups on certain maps for enhanced smoke coverage\n" +
+    "- Initiator-heavy compositions for better information gathering\n" +
+    "- Fade has risen in popularity as a strong alternative to Sova\n" +
+    "- Chamber remains strong but more balanced after recent nerfs\n" +
+    "- Map-specific agent selections, particularly for controllers\n\n" +
+    "Teams are focusing on utility-heavy executes and post-plant setups rather than pure aim duels.";
+    
+  return new Response(
+    JSON.stringify({ 
+      success: true, 
+      content: metaContent,
+      type: "text_response"
+    }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
+}
+
+function improvementTipsResponse(prompt: string) {
+  const tipsContent = "To improve your Valorant gameplay:\n\n" +
+    "1. **Aim Improvement**\n" +
+    "   - Practice crosshair placement at head level\n" +
+    "   - Use aim trainers like Aimlabs or Kovaak's daily\n" +
+    "   - Play deathmatch focusing on precision over speed\n\n" +
+    "2. **Game Sense**\n" +
+    "   - Learn common angles and pre-aim positions\n" +
+    "   - Develop awareness of the minimap and team economy\n" +
+    "   - Study professional gameplay for positioning\n\n" +
+    "3. **Communication**\n" +
+    "   - Make concise callouts with location and damage\n" +
+    "   - Coordinate utility usage with teammates\n\n" +
+    "4. **Agent Mastery**\n" +
+    "   - Focus on 2-3 agents across different roles\n" +
+    "   - Learn lineup positions for specific utility\n\n" +
+    "5. **VOD Review**\n" +
+    "   - Review your gameplay to identify mistakes\n" +
+    "   - Analyze professional matches for strategic insights";
+    
+  return new Response(
+    JSON.stringify({ 
+      success: true, 
+      content: tipsContent,
+      type: "text_response"
     }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   );
