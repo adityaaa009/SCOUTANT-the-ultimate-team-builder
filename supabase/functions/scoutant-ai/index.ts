@@ -72,22 +72,55 @@ function generateFallbackPlayerAnalysis(players: any[]) {
   
   const roles = ["Duelist", "Controller", "Initiator", "Sentinel"];
   const agents = {
-    "Duelist": ["Jett", "Raze", "Phoenix", "Neon", "Yoru"],
-    "Controller": ["Omen", "Brimstone", "Astra", "Viper", "Harbor"],
+    "Duelist": ["Jett", "Raze", "Phoenix", "Neon", "Yoru", "Reyna", "Iso"],
+    "Controller": ["Omen", "Brimstone", "Astra", "Viper", "Harbor", "Clove"],
     "Initiator": ["Sova", "Skye", "Breach", "KAY/O", "Fade", "Gekko"],
     "Sentinel": ["Cypher", "Killjoy", "Chamber", "Sage", "Deadlock"]
   };
   
+  // Ensure we don't repeat agents in the lineup
+  const usedAgents = new Set();
+  
   return players.map((player, index) => {
     // Try to assign varied roles to create a balanced team
     const preferredRole = roles[index % roles.length];
-    const preferredAgents = agents[preferredRole];
-    const randomAgent = preferredAgents[Math.floor(Math.random() * preferredAgents.length)];
+    const preferredAgents = [...agents[preferredRole]];
+    
+    // Filter out already used agents
+    let availableAgents = preferredAgents.filter(agent => !usedAgents.has(agent));
+    
+    // If all agents of this role are used, allow repeats but try other roles first
+    if (availableAgents.length === 0) {
+      // Try agents from other roles
+      for (const role of roles) {
+        if (role !== preferredRole) {
+          const otherRoleAgents = agents[role].filter(agent => !usedAgents.has(agent));
+          if (otherRoleAgents.length > 0) {
+            availableAgents = otherRoleAgents;
+            break;
+          }
+        }
+      }
+      
+      // If still no available agents, allow repeats from preferred role
+      if (availableAgents.length === 0) {
+        availableAgents = preferredAgents;
+      }
+    }
+    
+    // Pick a random agent from available ones
+    const randomAgent = availableAgents[Math.floor(Math.random() * availableAgents.length)];
+    usedAgents.add(randomAgent);
+    
+    // Role might have changed if we had to pick from another role
+    const actualRole = Object.entries(agents).find(([role, agentsList]) => 
+      agentsList.includes(randomAgent)
+    )?.[0] || preferredRole;
     
     return {
       name: player.name || `Player${index + 1}`,
       agent: randomAgent,
-      role: preferredRole,
+      role: actualRole,
       confidence: Math.round((0.75 + Math.random() * 0.2) * 100) / 100,
       stats: {
         acs: Math.round(200 + Math.random() * 80),
@@ -95,7 +128,7 @@ function generateFallbackPlayerAnalysis(players: any[]) {
         adr: Math.round(130 + Math.random() * 50),
         kast: `${Math.round(60 + Math.random() * 25)}%`
       },
-      analysis: `This player would work well as a ${preferredRole} on ${randomAgent} based on their playstyle.`
+      analysis: `This player would work well as a ${actualRole} on ${randomAgent} based on their playstyle.`
     };
   });
 }

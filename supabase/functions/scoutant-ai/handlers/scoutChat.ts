@@ -1,4 +1,3 @@
-
 import { corsHeaders } from "../cors.ts";
 
 export async function handleScoutChat(data: { prompt: string; chatHistory?: any[] }, apiKey: string) {
@@ -12,12 +11,133 @@ export async function handleScoutChat(data: { prompt: string; chatHistory?: any[
   console.log(`Processing chat request: "${prompt.substring(0, 30)}..."`);
   
   try {
-    // Skip OpenAI API call and generate fallback response directly
-    return generateFallbackResponse(prompt);
+    // Check if the prompt is specifically asking for a team formation
+    if (prompt.toLowerCase().includes("team") && 
+        (prompt.toLowerCase().includes("formation") || prompt.toLowerCase().includes("composition"))) {
+      return generateTeamFormationResponse(prompt);
+    } else {
+      // Skip OpenAI API call and generate fallback response directly
+      return generateFallbackResponse(prompt);
+    }
   } catch (error) {
     console.error("Error in handleScoutChat:", error);
     return generateFallbackResponse(prompt, "general_error", error.message);
   }
+}
+
+// Generate a team formation response with varied agents
+function generateTeamFormationResponse(prompt: string) {
+  // Extract any specific team type requests
+  const promptLower = prompt.toLowerCase();
+  let teamType = "balanced";
+  
+  if (promptLower.includes("defensive") || promptLower.includes("defense")) {
+    teamType = "defensive";
+  } else if (promptLower.includes("offensive") || promptLower.includes("attack")) {
+    teamType = "offensive";
+  }
+  
+  // Extract map name if present
+  let mapName = "";
+  const mapNames = ["haven", "bind", "split", "ascent", "icebox", "breeze", "fracture", "pearl", "lotus", "sunset"];
+  for (const map of mapNames) {
+    if (promptLower.includes(map)) {
+      mapName = map.charAt(0).toUpperCase() + map.slice(1);
+      break;
+    }
+  }
+  
+  // Generate team with varied agents based on team type
+  const teamData = generateSpecializedTeam(teamType, mapName);
+  
+  return new Response(
+    JSON.stringify({
+      success: true,
+      type: "team_composition",
+      playerNames: teamData.lineup.map((player: any) => player.name),
+      data: teamData,
+      mapName: mapName || "various maps"
+    }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
+}
+
+// Generate team based on type and map
+function generateSpecializedTeam(teamType: string, mapName: string = "") {
+  const playerNames = ["Chronicle", "nAts", "Aspas", "Zekken", "cNed", "TenZ", "yay", "ScreaM", "Derke", "Boaster", "Shao"];
+  const duelist = ["Jett", "Raze", "Reyna", "Phoenix", "Neon", "Iso", "Yoru"];
+  const controller = ["Omen", "Brimstone", "Astra", "Viper", "Harbor", "Clove"];
+  const sentinel = ["Cypher", "Killjoy", "Chamber", "Sage", "Deadlock"];
+  const initiator = ["Sova", "Skye", "Breach", "KAY/O", "Fade", "Gekko"];
+  
+  // Use different agent distributions based on team type
+  let teamComposition: string[][] = [];
+  
+  if (teamType === "defensive") {
+    teamComposition = [
+      sentinel, sentinel, controller, initiator, duelist
+    ];
+  } else if (teamType === "offensive") {
+    teamComposition = [
+      duelist, duelist, controller, initiator, initiator
+    ];
+  } else {
+    // Balanced team
+    teamComposition = [
+      duelist, controller, sentinel, initiator, initiator
+    ];
+  }
+  
+  // Shuffle the player names
+  const shuffledNames = [...playerNames].sort(() => 0.5 - Math.random());
+  
+  // Create lineup with different agents for each player
+  const lineup = teamComposition.map((agentPool, index) => {
+    // Generate unique agent for this position
+    const agent = agentPool[Math.floor(Math.random() * agentPool.length)];
+    
+    // Determine role based on agent
+    let role;
+    if (duelist.includes(agent)) role = "Duelist";
+    else if (controller.includes(agent)) role = "Controller";
+    else if (sentinel.includes(agent)) role = "Sentinel";
+    else role = "Initiator";
+    
+    return {
+      name: shuffledNames[index],
+      agent: agent,
+      role: role,
+      confidence: parseFloat((0.75 + Math.random() * 0.2).toFixed(2)),
+      stats: {
+        acs: Math.floor(Math.random() * 80) + 220,
+        kd: parseFloat((0.9 + Math.random() * 0.6).toFixed(2)),
+        adr: Math.floor(Math.random() * 50) + 130,
+        kast: `${Math.floor(Math.random() * 20) + 70}%`
+      },
+      analysis: `${shuffledNames[index]} is a strong ${role} player with excellent ${agent} mechanics.`
+    };
+  });
+  
+  // Create team analysis based on team type
+  let teamAnalysis = "";
+  if (teamType === "defensive") {
+    teamAnalysis = "This defensive team composition excels at holding sites with multiple sentinels. The utility coverage allows for strong retakes and information gathering.";
+  } else if (teamType === "offensive") {
+    teamAnalysis = "This aggressive team composition focuses on fast executes and space creation with double duelist setup. The initiators provide excellent support for entries.";
+  } else {
+    teamAnalysis = "This balanced team composition provides good coverage of all roles, with strong fragging potential while maintaining utility for both attack and defense.";
+  }
+  
+  if (mapName) {
+    teamAnalysis += ` This composition is particularly effective on ${mapName}.`;
+  }
+  
+  return {
+    success: true,
+    lineup: lineup,
+    teamAnalysis: teamAnalysis,
+    is_fallback: true
+  };
 }
 
 // Generate a more helpful fallback response based on the prompt content
@@ -28,7 +148,7 @@ function generateFallbackResponse(prompt: string, errorType?: string, errorDetai
   // Pattern matching for different Valorant topics
   if (/best (agent|duelist|controller|initiator|sentinel)/i.test(promptLower)) {
     return agentRecommendationResponse(promptLower);
-  } else if (/map|haven|bind|ascent|split|breeze|lotus|pearl|sunset/i.test(promptLower)) {
+  } else if (/map|haven|bind|ascent|split|breeze|lotus|pearl/i.test(promptLower)) {
     return mapStrategyResponse(promptLower);
   } else if (/player|pro|team|stats|performance/i.test(promptLower)) {
     return playerAnalysisResponse(promptLower);

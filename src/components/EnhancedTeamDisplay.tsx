@@ -64,6 +64,13 @@ const EnhancedTeamDisplay: React.FC<EnhancedTeamDisplayProps> = ({ recommendatio
 
   const lineup = recommendation.lineup || [];
 
+  // Helper function to get agent image URL
+  const getAgentImageUrl = (agentName: string) => {
+    // Format the agent name properly for the API URL
+    const formattedName = agentName.toLowerCase();
+    return `https://media.valorant-api.com/agents/displayname/${formattedName}/displayicon.png`;
+  };
+
   return (
     <div className="space-y-4">
       {recommendation.teamAnalysis && (
@@ -91,7 +98,7 @@ const EnhancedTeamDisplay: React.FC<EnhancedTeamDisplayProps> = ({ recommendatio
                 </div>
                 <div className="h-full flex items-center justify-center">
                   <img 
-                    src={`https://media.valorant-api.com/agents/displayname/${player.agent.toLowerCase()}/displayicon.png`}
+                    src={getAgentImageUrl(player.agent)}
                     alt={player.agent}
                     className="w-24 h-24 object-contain opacity-90"
                     onError={(e) => {
