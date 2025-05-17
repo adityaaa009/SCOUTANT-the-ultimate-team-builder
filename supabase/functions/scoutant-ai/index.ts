@@ -70,7 +70,10 @@ function generateFallbackPlayerAnalysis(players: any[]) {
     return [];
   }
   
-  const roles = ["Duelist", "Controller", "Initiator", "Sentinel"];
+  // Define roles for a balanced team
+  const roles = ["Duelist", "Controller", "Initiator", "Sentinel", "Duelist"];
+  
+  // Define agents by role
   const agents = {
     "Duelist": ["Jett", "Raze", "Phoenix", "Neon", "Yoru", "Reyna", "Iso"],
     "Controller": ["Omen", "Brimstone", "Astra", "Viper", "Harbor", "Clove"],
@@ -78,57 +81,62 @@ function generateFallbackPlayerAnalysis(players: any[]) {
     "Sentinel": ["Cypher", "Killjoy", "Chamber", "Sage", "Deadlock"]
   };
   
-  // Ensure we don't repeat agents in the lineup
+  // Maintain a set of used agents to avoid duplicates
   const usedAgents = new Set();
   
   return players.map((player, index) => {
-    // Try to assign varied roles to create a balanced team
-    const preferredRole = roles[index % roles.length];
-    const preferredAgents = [...agents[preferredRole]];
+    // Assign role based on position in the team
+    const role = roles[index % roles.length];
     
-    // Filter out already used agents
-    let availableAgents = preferredAgents.filter(agent => !usedAgents.has(agent));
+    // Get all available agents for this role
+    const availableAgents = agents[role].filter(agent => !usedAgents.has(agent));
     
-    // If all agents of this role are used, allow repeats but try other roles first
-    if (availableAgents.length === 0) {
-      // Try agents from other roles
-      for (const role of roles) {
-        if (role !== preferredRole) {
-          const otherRoleAgents = agents[role].filter(agent => !usedAgents.has(agent));
-          if (otherRoleAgents.length > 0) {
-            availableAgents = otherRoleAgents;
-            break;
-          }
+    // If no agents available for this role, try agents from other roles
+    let selectedAgent = "";
+    let selectedRole = role;
+    
+    if (availableAgents.length > 0) {
+      // Randomly select an agent from available ones
+      selectedAgent = availableAgents[Math.floor(Math.random() * availableAgents.length)];
+    } else {
+      // Try to find an available agent from any role
+      for (const [otherRole, agentsInRole] of Object.entries(agents)) {
+        const availableInRole = agentsInRole.filter(agent => !usedAgents.has(agent));
+        if (availableInRole.length > 0) {
+          selectedAgent = availableInRole[Math.floor(Math.random() * availableInRole.length)];
+          selectedRole = otherRole;
+          break;
         }
       }
       
-      // If still no available agents, allow repeats from preferred role
-      if (availableAgents.length === 0) {
-        availableAgents = preferredAgents;
+      // If still no agent is found (all agents are used), select a random agent from the original role
+      // This is a fallback and shouldn't happen with normal team sizes
+      if (!selectedAgent) {
+        selectedAgent = agents[role][Math.floor(Math.random() * agents[role].length)];
       }
     }
     
-    // Pick a random agent from available ones
-    const randomAgent = availableAgents[Math.floor(Math.random() * availableAgents.length)];
-    usedAgents.add(randomAgent);
+    // Mark this agent as used
+    usedAgents.add(selectedAgent);
     
-    // Role might have changed if we had to pick from another role
-    const actualRole = Object.entries(agents).find(([role, agentsList]) => 
-      agentsList.includes(randomAgent)
-    )?.[0] || preferredRole;
+    // Generate some reasonable stats
+    const acs = Math.round(200 + Math.random() * 80);
+    const kd = Math.round((0.9 + Math.random() * 0.6) * 100) / 100;
+    const adr = Math.round(130 + Math.random() * 50);
+    const kast = `${Math.round(60 + Math.random() * 25)}%`;
     
     return {
-      name: player.name || `Player${index + 1}`,
-      agent: randomAgent,
-      role: actualRole,
+      name: player.name || `Player ${index + 1}`,
+      agent: selectedAgent,
+      role: selectedRole,
       confidence: Math.round((0.75 + Math.random() * 0.2) * 100) / 100,
       stats: {
-        acs: Math.round(200 + Math.random() * 80),
-        kd: Math.round((0.9 + Math.random() * 0.6) * 100) / 100,
-        adr: Math.round(130 + Math.random() * 50),
-        kast: `${Math.round(60 + Math.random() * 25)}%`
+        acs: acs,
+        kd: kd,
+        adr: adr,
+        kast: kast
       },
-      analysis: `This player would work well as a ${actualRole} on ${randomAgent} based on their playstyle.`
+      analysis: `This player would be effective as a ${selectedRole} playing ${selectedAgent} based on their playstyle.`
     };
   });
 }

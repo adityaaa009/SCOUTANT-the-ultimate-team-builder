@@ -41,13 +41,31 @@ const PlayerSearchForm: React.FC<PlayerSearchFormProps> = ({
     setIsLoading(true);
     
     try {
-      const playersData = await fetchMultiplePlayersData(names);
+      // Ensure we have at least 5 player names by duplicating if needed
+      let processedNames = [...names];
+      while (processedNames.length < 5) {
+        processedNames = [...processedNames, ...names].slice(0, 5);
+      }
+      
+      const playersData = await fetchMultiplePlayersData(processedNames);
       onPlayerDataFetched(playersData);
       
       if (playersData.length > 0) {
-        const recommendation = recommendTeamComposition(playersData);
-        onTeamRecommendation(recommendation);
-        toast.success(`Player data analyzed: ${names.length} players`);
+        try {
+          // First try the local recommendation
+          const recommendation = recommendTeamComposition(playersData);
+          
+          // If local recommendation fails or doesn't have enough data, try the API
+          if (!recommendation.success || !recommendation.lineup || recommendation.lineup.length < 5) {
+            await fetchAITeamRecommendation(processedNames, playersData);
+          } else {
+            onTeamRecommendation(recommendation);
+            toast.success(`Team composition analyzed based on ${names.length} player(s)`);
+          }
+        } catch (error) {
+          // If local fails, try the API
+          await fetchAITeamRecommendation(processedNames, playersData);
+        }
       } else {
         toast.error("No player data found. Try different player names.");
       }
@@ -56,6 +74,44 @@ const PlayerSearchForm: React.FC<PlayerSearchFormProps> = ({
       toast.error("Failed to fetch player data. Please try again.");
     } finally {
       setIsLoading(false);
+    }
+  };
+  
+  // Function to fetch AI-based team recommendation from the Supabase function
+  const fetchAITeamRecommendation = async (names: string[], playersData: any[]) => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_FUNCTIONS_URL}/scoutant-ai`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        },
+        body: JSON.stringify({
+          action: 'analyze_players',
+          data: {
+            players: playersData.map(p => ({
+              name: p.name,
+              stats: p.stats
+            }))
+          }
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        onTeamRecommendation(data);
+        toast.success(`Team composition analyzed based on ${names.length} player(s)`);
+      } else {
+        throw new Error(data.message || "Failed to analyze team composition");
+      }
+    } catch (error) {
+      console.error("Error in AI recommendation:", error);
+      toast.error("Failed to generate AI team recommendation. Using basic analysis instead.");
+      
+      // Use local recommendation as fallback
+      const recommendation = recommendTeamComposition(playersData);
+      onTeamRecommendation(recommendation);
     }
   };
   

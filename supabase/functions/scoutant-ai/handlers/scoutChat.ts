@@ -1,3 +1,4 @@
+
 import { corsHeaders } from "../cors.ts";
 
 export async function handleScoutChat(data: { prompt: string; chatHistory?: any[] }, apiKey: string) {
@@ -89,23 +90,53 @@ function generateSpecializedTeam(teamType: string, mapName: string = "") {
   }
   
   // Shuffle the player names
-  const shuffledNames = [...playerNames].sort(() => 0.5 - Math.random());
+  const shuffledNames = [...playerNames].sort(() => 0.5 - Math.random()).slice(0, 5);
+  
+  // Track used agents to prevent duplicates
+  const usedAgents = new Set();
   
   // Create lineup with different agents for each player
   const lineup = teamComposition.map((agentPool, index) => {
-    // Generate unique agent for this position
-    const agent = agentPool[Math.floor(Math.random() * agentPool.length)];
+    // Filter out already used agents
+    const availableAgents = agentPool.filter(agent => !usedAgents.has(agent));
     
-    // Determine role based on agent
+    // Select an agent - if no agents available in this role, try another role
+    let selectedAgent: string;
+    let selectedAgentPool = availableAgents;
+    
+    if (availableAgents.length === 0) {
+      // Try to find available agents from any other role
+      const allAvailableAgents = [
+        ...duelist.filter(a => !usedAgents.has(a)),
+        ...controller.filter(a => !usedAgents.has(a)),
+        ...sentinel.filter(a => !usedAgents.has(a)),
+        ...initiator.filter(a => !usedAgents.has(a))
+      ];
+      
+      // If absolutely all agents are used (shouldn't happen with 5 players), reset
+      if (allAvailableAgents.length === 0) {
+        selectedAgent = agentPool[Math.floor(Math.random() * agentPool.length)];
+      } else {
+        selectedAgentPool = allAvailableAgents;
+        selectedAgent = allAvailableAgents[Math.floor(Math.random() * allAvailableAgents.length)];
+      }
+    } else {
+      selectedAgent = availableAgents[Math.floor(Math.random() * availableAgents.length)];
+    }
+    
+    // Mark agent as used
+    usedAgents.add(selectedAgent);
+    
+    // Determine role based on the agent
     let role;
-    if (duelist.includes(agent)) role = "Duelist";
-    else if (controller.includes(agent)) role = "Controller";
-    else if (sentinel.includes(agent)) role = "Sentinel";
+    if (duelist.includes(selectedAgent)) role = "Duelist";
+    else if (controller.includes(selectedAgent)) role = "Controller";
+    else if (sentinel.includes(selectedAgent)) role = "Sentinel";
     else role = "Initiator";
     
     return {
       name: shuffledNames[index],
-      agent: agent,
+      agent: selectedAgent,
       role: role,
       confidence: parseFloat((0.75 + Math.random() * 0.2).toFixed(2)),
       stats: {
@@ -114,7 +145,7 @@ function generateSpecializedTeam(teamType: string, mapName: string = "") {
         adr: Math.floor(Math.random() * 50) + 130,
         kast: `${Math.floor(Math.random() * 20) + 70}%`
       },
-      analysis: `${shuffledNames[index]} is a strong ${role} player with excellent ${agent} mechanics.`
+      analysis: `${shuffledNames[index]} is a strong ${role} player with excellent ${selectedAgent} mechanics.`
     };
   });
   
