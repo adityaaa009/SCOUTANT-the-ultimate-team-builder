@@ -1,4 +1,3 @@
-
 import { corsHeaders } from "../cors.ts";
 
 export async function handleScoutChat(data: { prompt: string; chatHistory?: any[] }, apiKey: string) {
@@ -12,12 +11,86 @@ export async function handleScoutChat(data: { prompt: string; chatHistory?: any[
   console.log(`Processing chat request: "${prompt.substring(0, 30)}..."`);
   
   try {
-    // Check if the prompt is specifically asking for a team formation
-    if (prompt.toLowerCase().includes("team") && 
-        (prompt.toLowerCase().includes("formation") || prompt.toLowerCase().includes("composition"))) {
-      return generateTeamFormationResponse(prompt);
+    // If we have a valid Google API key, use it
+    if (apiKey && apiKey.trim() !== '') {
+      try {
+        const apiPrompt = `
+          You are an expert Valorant gaming assistant specializing in player analysis, team composition, agent selection, and strategy for competitive play.
+          
+          User query: "${prompt}"
+          
+          If the query is about team composition or specific players, format your response as JSON with this structure:
+          {
+            "type": "team_composition",
+            "lineup": [array of player objects with roles],
+            "teamAnalysis": "analysis of the team"
+          }
+          
+          If the query is about agent selection for a specific map, format your response as JSON:
+          {
+            "type": "agent_selection",
+            "recommendations": [array of agent recommendations],
+            "strategyNotes": "strategy notes for the map"
+          }
+          
+          Otherwise, provide a helpful text response about Valorant.
+        `;
+
+        const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey,
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                role: 'user',
+                parts: [
+                  { text: apiPrompt }
+                ]
+              }
+            ],
+            generationConfig: {
+              temperature: 0.2,
+            }
+          }),
+        });
+
+        const result = await response.json();
+        
+        if (!response.ok || !result.candidates || result.candidates.length === 0) {
+          throw new Error(result.error?.message || 'Unknown error');
+        }
+        
+        // Extract the response text from the result
+        const responseText = result.candidates[0].content.parts[0].text;
+        
+        // Try to parse as JSON, if it's in JSON format
+        try {
+          const jsonResponse = JSON.parse(responseText);
+          return new Response(
+            JSON.stringify(jsonResponse),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        } catch (e) {
+          // Not JSON, return as text response
+          return new Response(
+            JSON.stringify({
+              success: true,
+              content: responseText,
+              type: "text_response"
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      } catch (error) {
+        console.error("Error calling Google AI:", error);
+        // Fall back to predefined responses
+        return generateFallbackResponse(prompt);
+      }
     } else {
-      // Skip OpenAI API call and generate fallback response directly
+      // No API key, use fallback responses
       return generateFallbackResponse(prompt);
     }
   } catch (error) {

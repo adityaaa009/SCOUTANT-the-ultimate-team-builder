@@ -10,7 +10,7 @@ export async function handlePlayerAnalysis(data: { players: any[] }, apiKey: str
 
   // Check if we have a valid API key
   if (!apiKey || apiKey.trim() === '') {
-    console.log("No OpenAI API key available, using fallback player analysis");
+    console.log("No Google API key available, using fallback player analysis");
     return generateFallbackAnalysis(players);
   }
 
@@ -48,37 +48,46 @@ export async function handlePlayerAnalysis(data: { players: any[] }, apiKey: str
       }
     `;
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: 'You are an expert Valorant analyst and coach who specializes in player analysis and team composition.' },
-          { role: 'user', content: prompt }
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              { text: prompt }
+            ]
+          }
         ],
-        temperature: 0.2,
+        generationConfig: {
+          temperature: 0.2,
+        }
       }),
     });
 
     const result = await response.json();
     
-    if (!response.ok) {
-      console.error(`OpenAI API error: ${result.error?.message || 'Unknown error'}`);
+    if (!response.ok || !result.candidates || result.candidates.length === 0) {
+      console.error(`Google AI API error: ${JSON.stringify(result.error || 'Unknown error')}`);
       return generateFallbackAnalysis(players);
     }
     
     try {
-      const analysisResult = JSON.parse(result.choices[0].message.content);
+      // Extract the response text from the result
+      const responseText = result.candidates[0].content.parts[0].text;
+      // Parse the JSON from the response text
+      const analysisResult = JSON.parse(responseText);
+      
       return new Response(
         JSON.stringify(analysisResult),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } catch (e) {
-      console.error("Error parsing OpenAI response:", e);
+      console.error("Error parsing Google AI response:", e);
       return generateFallbackAnalysis(players);
     }
   } catch (error) {
@@ -87,7 +96,7 @@ export async function handlePlayerAnalysis(data: { players: any[] }, apiKey: str
   }
 }
 
-// Generate a fallback analysis when OpenAI is unavailable
+// Generate a fallback analysis when Google AI is unavailable
 function generateFallbackAnalysis(players: any[]) {
   // Define role distribution for a balanced team
   const roles = ["Duelist", "Controller", "Sentinel", "Initiator", "Duelist"];
@@ -126,11 +135,34 @@ function generateFallbackAnalysis(players: any[]) {
     ]
   };
 
+  // Maintain a set of used agents to avoid duplicates
+  const usedAgents = new Set();
+
   const lineup = players.map((player, index) => {
     // Assign role based on position to ensure team balance
     const assignedRole = roles[index % roles.length];
-    const availableAgents = agentsByRole[assignedRole];
-    const assignedAgent = availableAgents[Math.floor(Math.random() * availableAgents.length)];
+    const availableAgents = agentsByRole[assignedRole].filter(agent => !usedAgents.has(agent));
+    
+    let assignedAgent;
+    if (availableAgents.length > 0) {
+      assignedAgent = availableAgents[Math.floor(Math.random() * availableAgents.length)];
+    } else {
+      // If no agents available for this role, find one from another role
+      for (const [role, agents] of Object.entries(agentsByRole)) {
+        const available = agents.filter(agent => !usedAgents.has(agent));
+        if (available.length > 0) {
+          assignedAgent = available[Math.floor(Math.random() * available.length)];
+          break;
+        }
+      }
+      // Last resort if all agents somehow taken (shouldn't happen with 5 players)
+      if (!assignedAgent) {
+        assignedAgent = agentsByRole[assignedRole][0];
+      }
+    }
+    
+    // Mark this agent as used
+    usedAgents.add(assignedAgent);
     
     // Select a random analysis template for the role
     const analysisOptions = analysisTemplates[assignedRole];

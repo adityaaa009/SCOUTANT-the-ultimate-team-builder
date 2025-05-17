@@ -1,4 +1,3 @@
-
 import { corsHeaders } from "../cors.ts";
 
 export async function handleAgentSelection(data: { map: string; playerStats?: any; teamComposition?: string[] }, apiKey: string) {
@@ -8,9 +7,9 @@ export async function handleAgentSelection(data: { map: string; playerStats?: an
     throw new Error('Map name is required');
   }
 
-  // Check if OpenAI API key is available and valid
+  // Check if Google API key is available and valid
   if (!apiKey || apiKey.trim() === '') {
-    console.warn("OpenAI API key is not configured or is invalid");
+    console.warn("Google API key is not configured or is invalid");
     return generateFallbackAgentResponse(map);
   }
 
@@ -43,41 +42,50 @@ export async function handleAgentSelection(data: { map: string; playerStats?: an
     `;
 
     try {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey,
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [
-            { role: 'system', content: 'You are an expert Valorant analyst specializing in map strategies and agent selection.' },
-            { role: 'user', content: prompt }
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                { text: prompt }
+              ]
+            }
           ],
-          temperature: 0.3,
+          generationConfig: {
+            temperature: 0.3,
+          }
         }),
       });
 
       const result = await response.json();
       
-      if (!response.ok) {
-        console.error(`OpenAI API error: ${JSON.stringify(result.error)}`);
+      if (!response.ok || !result.candidates || result.candidates.length === 0) {
+        console.error(`Google AI API error: ${JSON.stringify(result.error || 'Unknown error')}`);
         return generateFallbackAgentResponse(map);
       }
       
       try {
-        const agentResult = JSON.parse(result.choices[0].message.content);
+        // Extract the response text from the result
+        const responseText = result.candidates[0].content.parts[0].text;
+        // Parse the JSON from the response text
+        const agentResult = JSON.parse(responseText);
+        
         return new Response(
           JSON.stringify(agentResult),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } catch (e) {
-        console.error("Error parsing OpenAI response:", e);
+        console.error("Error parsing Google AI response:", e);
         return generateFallbackAgentResponse(map);
       }
     } catch (error) {
-      console.error("Error calling OpenAI API:", error);
+      console.error("Error calling Google AI API:", error);
       return generateFallbackAgentResponse(map);
     }
   } catch (error) {

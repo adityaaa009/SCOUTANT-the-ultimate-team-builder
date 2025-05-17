@@ -14,17 +14,17 @@ serve(async (req) => {
 
   try {
     const { action, data } = await req.json();
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY') || '';
+    const GOOGLE_API_KEY = Deno.env.get('GOOGLE_API_KEY') || '';
 
     // Log the action and basic info about the request
     console.log(`Processing action: ${action}`);
 
-    // Handle different actions - now with less dependency on OpenAI API key
+    // Handle different actions - now with Google AI API
     switch (action) {
       case 'analyze_players':
         try {
-          // We'll try to use the API if available, but won't error if it's missing
-          return await handlePlayerAnalysis(data, OPENAI_API_KEY);
+          // We'll try to use the Google API if available, but won't error if it's missing
+          return await handlePlayerAnalysis(data, GOOGLE_API_KEY);
         } catch (error) {
           // If the API call fails, return a fallback response
           console.log(`Falling back to static response for player analysis: ${error.message}`);
@@ -39,11 +39,11 @@ serve(async (req) => {
           );
         }
       case 'scout_chat':
-        // The chat handler now works without OpenAI API
-        return await handleScoutChat(data, OPENAI_API_KEY);
+        // The chat handler now works with Google AI API
+        return await handleScoutChat(data, GOOGLE_API_KEY);
       case 'agent_selection':
         // The agent selection handler can fall back to static responses
-        return await handleAgentSelection(data, OPENAI_API_KEY);
+        return await handleAgentSelection(data, GOOGLE_API_KEY);
       default:
         console.error(`Unknown action requested: ${action}`);
         throw new Error(`Unknown action: ${action}`);
@@ -64,7 +64,7 @@ serve(async (req) => {
   }
 });
 
-// Fallback player analysis when OpenAI is unavailable
+// Fallback player analysis when Google AI is unavailable
 function generateFallbackPlayerAnalysis(players: any[]) {
   if (!players || players.length === 0) {
     return [];

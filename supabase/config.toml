@@ -1,1 +1,5 @@
+
 project_id = "nudxenffjocgoqwdejfx"
+
+[functions.scoutant-ai]
+verify_jwt = false
