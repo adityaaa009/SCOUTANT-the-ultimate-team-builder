@@ -1,3 +1,4 @@
+
 import { corsHeaders } from "../cors.ts";
 
 export async function handleScoutChat(data: { prompt: string; chatHistory?: any[] }, apiKey: string) {
@@ -15,7 +16,15 @@ export async function handleScoutChat(data: { prompt: string; chatHistory?: any[
     if (apiKey && apiKey.trim() !== '') {
       try {
         const apiPrompt = `
-          You are an expert Valorant gaming assistant specializing in player analysis, team composition, agent selection, and strategy for competitive play.
+          You are an expert Valorant gaming assistant specializing in player analysis, team composition, agent selection, and strategy for competitive play. You are extremely passionate about Valorant and all your knowledge is focused on this game.
+          
+          Always answer from the perspective of a Valorant expert. If the question is not directly related to Valorant, find a way to connect it to Valorant concepts, strategies, professional players, or the gaming community. Never acknowledge that a topic is outside of Valorant - instead, pivot to relate it to the Valorant universe.
+          
+          For example:
+          - If asked about cooking, relate it to Valorant player diets or tournament catering
+          - If asked about history, relate it to the lore and history of Valorant
+          - If asked about other games, compare them to Valorant mechanics
+          - If asked about math or science, relate it to Valorant game mechanics
           
           User query: "${prompt}"
           
@@ -33,7 +42,7 @@ export async function handleScoutChat(data: { prompt: string; chatHistory?: any[
             "strategyNotes": "strategy notes for the map"
           }
           
-          Otherwise, provide a helpful text response about Valorant.
+          Otherwise, provide a helpful text response about Valorant or relating the topic to Valorant.
         `;
 
         const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent', {
@@ -249,6 +258,11 @@ function generateFallbackResponse(prompt: string, errorType?: string, errorDetai
   // Analyze prompt to provide a relevant response
   const promptLower = prompt.toLowerCase();
   
+  // Check for non-Valorant topics and respond with Valorant context anyway
+  if (isNonValorantTopic(promptLower)) {
+    return nonValorantToValorantResponse(promptLower);
+  }
+  
   // Pattern matching for different Valorant topics
   if (/best (agent|duelist|controller|initiator|sentinel)/i.test(promptLower)) {
     return agentRecommendationResponse(promptLower);
@@ -271,6 +285,65 @@ function generateFallbackResponse(prompt: string, errorType?: string, errorDetai
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
+}
+
+// Check if the prompt is about a non-Valorant topic
+function isNonValorantTopic(prompt: string): boolean {
+  const valorantKeywords = [
+    "valorant", "agent", "duelist", "controller", "sentinel", "initiator", 
+    "jett", "raze", "omen", "viper", "cypher", "killjoy", "chamber", "sage", 
+    "sova", "skye", "breach", "phoenix", "reyna", "neon", "harbor", "astra", 
+    "kay/o", "fade", "gekko", "iso", "clove", "team", "comp", "composition", 
+    "map", "haven", "bind", "split", "ascent", "icebox", "breeze", "fracture", 
+    "pearl", "lotus", "sunset", "spike", "plant", "defuse", "ult", "ultimate", 
+    "ability", "tournament", "vct", "rank", "radiant", "immortal", "diamond", 
+    "platinum", "gold", "silver", "bronze", "iron"
+  ];
+  
+  return !valorantKeywords.some(keyword => prompt.includes(keyword));
+}
+
+// Transform non-Valorant topics into Valorant context
+function nonValorantToValorantResponse(prompt: string) {
+  // Categories to respond to with Valorant context
+  const topics = {
+    "food|cooking|recipe|meal|eat|drink|restaurant": "In the Valorant community, many pro players maintain strict diets to enhance their performance. For example, TenZ has mentioned his diet regimen during tournament preparation. Proper nutrition and hydration are crucial for maintaining focus during long matches. At major Valorant events like VCT, players often have specialized meal plans to optimize their performance.",
+    
+    "weather|climate|temperature|rain|snow|forecast": "Weather conditions don't affect Valorant gameplay directly since it's an indoor esport, but many maps feature different environmental themes. Haven has a warm, middle-eastern climate, while Icebox features harsh winter conditions. Players often report that their setup and performance can be affected by room temperature - many pros prefer cooler environments for better focus during intense clutch moments.",
+    
+    "history|ancient|medieval|war|civilization": "Valorant's lore includes a rich history about the First Light event and the emergence of Radiants. The Kingdom Corporation's experiments and the formation of the VALORANT Protocol form a complex historical narrative. Different agents come from various historical and cultural backgrounds, like Cypher from Morocco or Sage from China, bringing diverse historical influences into the game.",
+    
+    "math|calculation|equation|number|statistics": "Valorant is deeply mathematical! Players constantly calculate economy (eco) rounds, damage statistics, and utility usage efficiency. The difference between a 150 and 151 damage output can determine if an enemy is eliminated. Pro analysts use advanced statistics like ACS (Average Combat Score), KAST (Kill/Assist/Survive/Trade) percentage, and first blood percentage to evaluate player performance.",
+    
+    "movie|film|show|actor|director|hollywood": "While Valorant doesn't have a movie (yet), its cinematic trailers like 'Duality' and character reveal videos showcase incredible storytelling. Many Valorant pro players and streamers are huge personalities in their own right, with TenZ, Shroud and others becoming celebrities in the gaming world. Some players like Asuna or Sinatraa have been called the 'main characters' of competitive matches due to their highlight-worthy plays.",
+    
+    "music|song|band|concert|album|genre": "Music plays an important role in Valorant gameplay, with sound cues being critical for locating enemies. Many pro players have specific playlists they use while training. The game itself features dynamic music that intensifies during clutch situations. The community often discusses which agent would listen to which music genres - with Raze likely enjoying energetic beats while Cypher might prefer mysterious ambient tracks.",
+    
+    "politics|government|election|president|policy": "The politics of Valorant exist within its lore, where the world is divided between Kingdom Corporation's influence and the secretive VALORANT Protocol. Different agents represent various nations and ideologies, creating a complex geopolitical environment. In the competitive scene, regional rivalries (like NA vs EU vs KR) create their own form of 'political' discussions about which region has the best players and strategies.",
+    
+    "travel|vacation|hotel|flight|tourism": "Valorant's global map pool takes players on a virtual world tour - from the bells of Ascent in Italy to the cherry blossoms of Split in Tokyo. Professional Valorant players are true world travelers, competing in tournaments across the globe in cities like Berlin, Reykjavik, and Istanbul. Each map offers unique 'tourism' opportunities through its detailed environmental storytelling.",
+    
+    "sport|basketball|football|soccer|tennis|athlete": "Valorant is one of the fastest growing esports in the world! Like traditional sports, it requires incredible reaction time, hand-eye coordination, and strategic teamwork. Many former professional athletes from traditional sports have become Valorant players or fans. The VCT (Valorant Champions Tour) is structured similarly to traditional sports leagues, with regional qualifiers leading to international championships."
+  };
+  
+  // Find matching category
+  let response = "As a Valorant expert, I focus on helping players improve their gameplay, understand team compositions, and master agent abilities. Valorant is a 5v5 tactical shooter where precise gunplay meets unique agent abilities. Let me know what aspects of Valorant you'd like to explore - from professional strategies to beginner tips!";
+  
+  for (const [keywords, answer] of Object.entries(topics)) {
+    if (new RegExp(keywords, 'i').test(prompt)) {
+      response = answer;
+      break;
+    }
+  }
+  
+  return new Response(
+    JSON.stringify({ 
+      success: true, 
+      content: response,
+      type: "text_response"
+    }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
 }
 
 function agentRecommendationResponse(prompt: string) {
