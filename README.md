@@ -29,7 +29,7 @@ Check out the live hosted version of SCOUTANT at [SCOUTANT Live](https://scoutan
 
 ## Getting Started
 
-To get started with SCOUTANT, follow these steps:
+To get started with SCOUTANT, follow these steps:-
 
 1. **Clone the Repository**:
     ```bash
